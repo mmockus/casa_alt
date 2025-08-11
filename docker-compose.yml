@@ -1,0 +1,12 @@
+version: "3.9"
+services:
+  casatunes-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_BASE: "http://<CASATUNES_HOST>:8735/api/v1"
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    image: casatunes-ui:latest

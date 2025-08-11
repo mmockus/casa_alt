@@ -1,0 +1,12 @@
+node_modules
+ui/node_modules
+ui/build
+npm-debug.log
+.yarn*
+yarn.lock
+pnpm-lock.yaml
+.git
+.gitignore
+Dockerfile*
+docker-compose*.yml
+**/*.log

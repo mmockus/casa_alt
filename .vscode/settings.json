@@ -1,0 +1,23 @@
+// DELETE FILE
+{
+    "workbench.colorCustomizations": {
+        "activityBar.activeBackground": "#aeb9c4",
+        "activityBar.background": "#aeb9c4",
+        "activityBar.foreground": "#15202b",
+        "activityBar.inactiveForeground": "#15202b99",
+        "activityBarBadge.background": "#946b7f",
+        "activityBarBadge.foreground": "#e7e7e7",
+        "commandCenter.border": "#15202b99",
+        "sash.hoverBorder": "#aeb9c4",
+        "statusBar.background": "#91a0ae",
+        "statusBar.foreground": "#15202b",
+        "statusBarItem.hoverBackground": "#748798",
+        "statusBarItem.remoteBackground": "#91a0ae",
+        "statusBarItem.remoteForeground": "#15202b",
+        "titleBar.activeBackground": "#91a0ae",
+        "titleBar.activeForeground": "#15202b",
+        "titleBar.inactiveBackground": "#91a0ae99",
+        "titleBar.inactiveForeground": "#15202b99"
+    },
+    "peacock.remoteColor": "#91a0ae"
+}
