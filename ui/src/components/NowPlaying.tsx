@@ -148,14 +148,6 @@ const NowPlaying: React.FC<Props> = ({ zoneName, themeName }) => {
               <IconButton size="small" onClick={() => callApi(isPlaying ? 'pause':'play')} sx={{ p:0.6, bgcolor:`${palette.dominant}55`, color:palette.text, '&:hover':{ bgcolor:`${palette.dominant}88` } }}>{isPlaying ? <PauseIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}</IconButton>
               <Box sx={{ position:'relative', display:'inline-flex' }} onMouseEnter={handleNextHoverEnter} onMouseLeave={handleNextHoverLeave}>
                 <IconButton ref={(r)=> { nextBtnRef.current = r; }} size="small" onClick={() => callApi('next')} sx={{ color:palette.text, p:0.5 }}><SkipNextIcon fontSize="small" /></IconButton>
-                {showNextPreview && nextSong && (
-                  <Box sx={{ position:'absolute', bottom:'100%', mb:0.6, right:0, width:{xs:70, sm:110}, height:{xs:70, sm:110}, borderRadius:1, boxShadow:'0 4px 14px -4px rgba(0,0,0,0.7)', border:'1px solid rgba(255,255,255,0.25)', overflow:'hidden', backgroundImage: nextSong.ArtworkURI?`url(${nextSong.ArtworkURI})`: 'none', backgroundSize:'cover', backgroundPosition:'center', bgcolor:'rgba(0,0,0,0.55)', display:'flex', alignItems:'flex-end', justifyContent:'stretch' }}>
-                    <Box sx={{ width:'100%', backdropFilter:'blur(4px) brightness(0.9)', bgcolor:'rgba(0,0,0,0.45)', p:0.4 }}>
-                      <Typography variant="caption" sx={{ display:'block', fontSize:{xs:'0.48rem', sm:'0.55rem'}, fontWeight:600, lineHeight:1.1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{nextSong.Title || 'Next'}</Typography>
-                      <Typography variant="caption" sx={{ display:'block', fontSize:{xs:'0.42rem', sm:'0.5rem'}, color:'rgba(255,255,255,0.65)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{nextSong.Artists || nextSong.Artist || ''}</Typography>
-                    </Box>
-                  </Box>
-                )}
               </Box>
               <IconButton size="small" onClick={handleVolumeClick} sx={{ color:palette.text, p:0.5 }}><VolumeUpIcon fontSize="small" /></IconButton>
               <IconButton size="small" onClick={toggleMute} sx={{ color:palette.text, p:0.5 }}>{volume===0? <VolumeOffIcon fontSize="small" color="error" /> : <VolumeOffIcon fontSize="small" />}</IconButton>
