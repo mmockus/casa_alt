@@ -6,11 +6,13 @@ import MenuIcon from '@mui/icons-material/Menu';
 import { Zone } from '../types';
 import { API_BASE } from '../config';
 
+import { ThemeName } from '../types';
+
 interface Props {
   selectedZone: string;
   setSelectedZone: (z: string) => void;
-  themeName: string;
-  setThemeName: (t: string) => void;
+  themeName: ThemeName;
+  setThemeName: (t: ThemeName) => void;
   compact?: boolean;
 }
 
@@ -30,7 +32,9 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
     const storedZone = localStorage.getItem('selectedZone');
     if (storedZone) setSelectedZone(storedZone);
     const storedTheme = localStorage.getItem('themeName');
-    if (storedTheme) setThemeName(storedTheme);
+    if (storedTheme === 'Basic Black' || storedTheme === 'Funcicle' || storedTheme === 'full of fun' || storedTheme === 'Full cover' || storedTheme === 'New cover' || storedTheme === 'immersive art') {
+      setThemeName(storedTheme);
+    }
     // Only run once
     // eslint-disable-next-line
   }, []);
@@ -93,12 +97,18 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
 
   const mini = compact;
   return (
-    <Box sx={{ p: mini ? 0.5 : 4, pt: mini ? 0.3 : 4, maxWidth: 600, mx: 'auto' }}>
+    <Box sx={{ p: mini ? 0.5 : 4, pt: mini ? 0.3 : 4, maxWidth: 380, mx: 'auto' }}>
       {loading ? <CircularProgress /> : error ? <Typography color="error">{error}</Typography> : (
         <Stack direction="row" spacing={mini ? 0.6 : 1} alignItems="center" justifyContent="center" sx={{ mx: 'auto' }}>
-          <Typography variant="caption" sx={{ whiteSpace: 'nowrap', color: 'text.disabled', fontSize: mini ? '0.55rem' : '0.70rem', letterSpacing: '.05rem', opacity:0.8 }}>Room</Typography>
           <FormControl size="small" sx={{ mt: 0, width: mini ? '42%' : '50%' }}>
-            <Select value={selectedZone} displayEmpty onChange={e => setSelectedZone(e.target.value as string)} size="small" sx={{ fontSize: mini ? '0.65rem' : undefined, '.MuiSelect-select': { py: mini ? 0.4 : 0.8, px: mini ? 1 : 1.4 } }}>
+            <Select value={selectedZone || ''} displayEmpty onChange={e => setSelectedZone(e.target.value as string)} size="small" sx={{ fontSize: mini ? '0.65rem' : undefined, '.MuiSelect-select': { py: mini ? 0.4 : 0.8, px: mini ? 1 : 1.4 } }}>
+              {!selectedZone && (
+                <MenuItem value="" disabled>
+                  <Typography component="span" sx={{ color: 'grey.500', fontStyle: 'italic', fontSize: mini ? '0.65rem' : '0.8rem' }}>
+                    Select a room
+                  </Typography>
+                </MenuItem>
+              )}
               {zones.map(zone => (
                 <MenuItem key={zone.ZoneID} value={zone.Name}>
                   <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>
@@ -150,8 +160,8 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
               <Typography variant="subtitle2" sx={{ px:1, py:0.5 }}>Theme</Typography>
               <Divider sx={{ mb:1 }} />
               <List dense disablePadding>
-                {['Basic Black','full of fun','Full cover','New cover'].map(name => (
-                  <ListItemButton key={name} onClick={() => { setThemeName(name); setThemeAnchor(null);} } sx={{ py:0.5 }}>
+                {['Basic Black','Funcicle','full of fun','Full cover','New cover'].map(name => (
+                  <ListItemButton key={name} onClick={() => { setThemeName(name as import('../types').ThemeName); setThemeAnchor(null);} } sx={{ py:0.5 }}>
                     <Checkbox size="small" edge="start" tabIndex={-1} disableRipple checked={themeName === name} />
                     <ListItemText primary={name} />
                   </ListItemButton>

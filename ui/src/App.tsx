@@ -7,7 +7,7 @@ import RoomSelector from './components/RoomSelector';
 import KaleidoscopeBackground from './components/KaleidoscopeBackground';
 import NowPlaying from './components/NowPlaying';
 // Types & utils
-import { NowPlayingResponse, Song } from './types';
+import { NowPlayingResponse, Song, ThemeName } from './types';
 import { API_BASE } from './config';
 
 
@@ -24,9 +24,12 @@ import { API_BASE } from './config';
 
 export default function App() {
   const [selectedZone, setSelectedZone] = useState<string>('');
-  const [themeName, setThemeName] = useState<string>(() => {
+  const [themeName, setThemeName] = useState<ThemeName>(() => {
     const storedTheme = localStorage.getItem('themeName');
-    return storedTheme || 'basic black';
+    if (storedTheme === 'Basic Black' || storedTheme === 'Funcicle' || storedTheme === 'full of fun' || storedTheme === 'Full cover' || storedTheme === 'New cover' || storedTheme === 'immersive art') {
+      return storedTheme as ThemeName;
+    }
+    return 'Basic Black';
   });
 
   // Lock body scroll for Full cover theme
@@ -42,7 +45,7 @@ export default function App() {
   const theme = React.useMemo(() => createTheme({
     palette: { mode: 'dark' },
     components: {
-      MuiCard: { styleOverrides: { root: themeName === 'basic black' ? {} : {} } }
+  MuiCard: { styleOverrides: { root: themeName === 'Basic Black' ? {} : {} } }
     }
   }), [themeName]);
 
