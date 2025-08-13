@@ -23,6 +23,40 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
   const [themeAnchor, setThemeAnchor] = useState<HTMLElement | null>(null);
   const themeOpen = Boolean(themeAnchor);
 
+  // On first mount, restore selectedZone and themeName from localStorage only if not already set
+  useEffect(() => {
+    let initialized = false;
+    if (!selectedZone) {
+      const storedZone = localStorage.getItem('selectedZone');
+      if (storedZone) {
+        setSelectedZone(storedZone);
+        initialized = true;
+      }
+    }
+    if (!themeName) {
+      const storedTheme = localStorage.getItem('themeName');
+      if (storedTheme) {
+        setThemeName(storedTheme);
+        initialized = true;
+      }
+    }
+    // Only set state if not already set, to avoid loops
+  }, []);
+
+  // When selectedZone changes, persist to localStorage only if different
+  useEffect(() => {
+    if (selectedZone && localStorage.getItem('selectedZone') !== selectedZone) {
+      localStorage.setItem('selectedZone', selectedZone);
+    }
+  }, [selectedZone]);
+
+  // When themeName changes, persist to localStorage only if different
+  useEffect(() => {
+    if (themeName && localStorage.getItem('themeName') !== themeName) {
+      localStorage.setItem('themeName', themeName);
+    }
+  }, [themeName]);
+
   useEffect(() => {
     (async () => {
       setLoading(true); setError(null);
