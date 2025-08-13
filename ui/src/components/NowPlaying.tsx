@@ -152,8 +152,30 @@ const NowPlaying: React.FC<Props> = ({ zoneName, themeName }) => {
               <IconButton size="small" onClick={handleVolumeClick} sx={{ color:palette.text, p:0.5 }}><VolumeUpIcon fontSize="small" /></IconButton>
               <IconButton size="small" onClick={toggleMute} sx={{ color:palette.text, p:0.5 }}>{volume===0? <VolumeOffIcon fontSize="small" color="error" /> : <VolumeOffIcon fontSize="small" />}</IconButton>
             </Stack>
-            {song.ArtworkURI && (
-              <Box aria-label="art thumb" sx={{ position:'absolute', right:{xs:6, sm:10}, bottom:{xs:6, sm:8}, width:{xs:70, sm:110}, height:{xs:70, sm:110}, borderRadius:1, boxShadow:'0 4px 14px -4px rgba(0,0,0,0.7)', border:'1px solid rgba(255,255,255,0.25)', backgroundImage:`url(${song.ArtworkURI})`, backgroundSize:'cover', backgroundPosition:'center', backgroundColor:'rgba(255,255,255,0.08)' }} />
+            {nextSong && nextSong.ArtworkURI && (
+              <Box
+                aria-label="next art thumb"
+                sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  right: { xs: 8, sm: 16 },
+                  transform: 'translateY(-50%)',
+                  width: { xs: '12vw', sm: '8vw', md: '70px', lg: '90px' },
+                  height: { xs: '12vw', sm: '8vw', md: '70px', lg: '90px' },
+                  maxWidth: '90px',
+                  maxHeight: '90px',
+                  minWidth: '44px',
+                  minHeight: '44px',
+                  borderRadius: 1,
+                  boxShadow: '0 4px 14px -4px rgba(0,0,0,0.7)',
+                  border: '1px solid rgba(255,255,255,0.25)',
+                  backgroundImage: `url(${nextSong.ArtworkURI})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  zIndex: 3,
+                }}
+              />
             )}
             <Popover open={volumeOpen} anchorEl={volumeAnchor} onClose={handleVolumeClose} anchorOrigin={{ vertical: 'top', horizontal: 'center' }} transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
               <Box sx={{ p:1.2, width:140 }}>
