@@ -11,7 +11,9 @@ import { NowPlayingResponse, Song } from '../types';
 import { formatTime } from '../utils';
 import { API_BASE } from '../config';
 
-interface Props { zoneName: string; themeName?: string; }
+import { ThemeName } from '../types';
+
+interface Props { zoneName: string; themeName?: ThemeName; }
 
 const NowPlaying: React.FC<Props> = ({ zoneName, themeName }) => {
   const [nowPlaying, setNowPlaying] = useState<NowPlayingResponse | null>(null);
@@ -55,7 +57,7 @@ const NowPlaying: React.FC<Props> = ({ zoneName, themeName }) => {
   }, [zoneName, refreshKey]);
 
   useEffect(() => {
-  if (themeName !== 'immersive art' && themeName !== 'Full cover' && themeName !== 'New cover') return;
+  if (themeName !== 'immersive art' && themeName !== 'Full cover' && themeName !== 'Robust') return;
     const src = nowPlaying?.CurrSong?.ArtworkURI; if (!src) return;
     setBgStack(prev => { if (prev.length && prev[prev.length - 1].src === src) return prev; const id = nextIdRef.current++; return [...prev, { src, id }].slice(-2); });
     const img = new Image(); img.crossOrigin='anonymous'; img.src = src; img.onload = () => {
@@ -88,9 +90,9 @@ const NowPlaying: React.FC<Props> = ({ zoneName, themeName }) => {
   const song = nowPlaying.CurrSong as Song; const duration = song.Duration || 0; const progress = nowPlaying.CurrProgress || 0; const percent = duration>0 ? (progress/duration)*100 : 0; const isPlaying = nowPlaying.Status === 2;
   const nextSong = (nowPlaying && (nowPlaying.NextSong || (Array.isArray(nowPlaying.Queue)? nowPlaying.Queue[1]: null) || (Array.isArray(nowPlaying.PlayQueue)? nowPlaying.PlayQueue[1]: null))) || null;
 
-  if (themeName === 'Full cover' || themeName === 'New cover' || themeName === 'Basic Black') {
+  if (themeName === 'Full cover' || themeName === 'Robust' || themeName === 'Basic Black') {
     // Custom 3-layer background for 'New cover'
-    if (themeName === 'New cover') {
+  if (themeName === 'Robust') {
       return (
         <Box sx={{ position:'fixed', inset:0, width:'100vw', height:'100vh', overflow:'hidden', zIndex:0 }}>
           {/* Layer 1: Diffused, cropped album art filling screen */}
@@ -253,7 +255,7 @@ const NowPlaying: React.FC<Props> = ({ zoneName, themeName }) => {
         </Box>
       );
     }
-    if (themeName === 'Basic Black') {
+  if (themeName && ((themeName as import('../types').ThemeName) === 'Basic Black' || (themeName as import('../types').ThemeName) === 'Funcicle')) {
       return (
         <Box sx={{ position:'fixed', inset:0, width:'100vw', height:'100vh', overflow:'hidden', zIndex:0, background:'#000' }}>
           {/* No diffused album art layer, just solid black */}

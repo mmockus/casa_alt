@@ -32,7 +32,7 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
     const storedZone = localStorage.getItem('selectedZone');
     if (storedZone) setSelectedZone(storedZone);
     const storedTheme = localStorage.getItem('themeName');
-    if (storedTheme === 'Basic Black' || storedTheme === 'Funcicle' || storedTheme === 'full of fun' || storedTheme === 'Full cover' || storedTheme === 'New cover' || storedTheme === 'immersive art') {
+    if (storedTheme === 'Basic Black' || storedTheme === 'Funcicle' || storedTheme === 'full of fun' || storedTheme === 'Full cover' || storedTheme === 'Robust' || storedTheme === 'immersive art') {
       setThemeName(storedTheme);
     }
     // Only run once
@@ -160,7 +160,7 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
               <Typography variant="subtitle2" sx={{ px:1, py:0.5 }}>Theme</Typography>
               <Divider sx={{ mb:1 }} />
               <List dense disablePadding>
-                {['Basic Black','Funcicle','full of fun','Full cover','New cover'].map(name => (
+                {['Basic Black','Funcicle','full of fun','Full cover','Robust'].map(name => (
                   <ListItemButton key={name} onClick={() => { setThemeName(name as import('../types').ThemeName); setThemeAnchor(null);} } sx={{ py:0.5 }}>
                     <Checkbox size="small" edge="start" tabIndex={-1} disableRipple checked={themeName === name} />
                     <ListItemText primary={name} />
