@@ -25,23 +25,42 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
 
   // On first mount, restore selectedZone and themeName from localStorage only if not already set
   useEffect(() => {
-    let initialized = false;
-    if (!selectedZone) {
-      const storedZone = localStorage.getItem('selectedZone');
-      if (storedZone) {
-        setSelectedZone(storedZone);
-        initialized = true;
-      }
-    }
-    if (!themeName) {
-      const storedTheme = localStorage.getItem('themeName');
-      if (storedTheme) {
-        setThemeName(storedTheme);
-        initialized = true;
-      }
-    }
-    // Only set state if not already set, to avoid loops
+    // On initial mount, set selectedZone and themeName from localStorage if present
+    const storedZone = localStorage.getItem('selectedZone');
+    if (storedZone) setSelectedZone(storedZone);
+    const storedTheme = localStorage.getItem('themeName');
+    if (storedTheme) setThemeName(storedTheme);
+    // Only run once
+    // eslint-disable-next-line
   }, []);
+
+  // Store selectedZone to localStorage when it changes
+  useEffect(() => {
+    if (selectedZone) {
+      localStorage.setItem('selectedZone', selectedZone);
+    }
+  }, [selectedZone]);
+
+  // Store themeName to localStorage when it changes
+  useEffect(() => {
+    if (themeName) {
+      localStorage.setItem('themeName', themeName);
+    }
+  }, [themeName]);
+
+  // Persist selectedZone to localStorage when it changes
+  useEffect(() => {
+    if (selectedZone) {
+      localStorage.setItem('selectedZone', selectedZone);
+    }
+  }, [selectedZone]);
+
+  // Persist themeName to localStorage when it changes
+  useEffect(() => {
+    if (themeName) {
+      localStorage.setItem('themeName', themeName);
+    }
+  }, [themeName]);
 
   // When selectedZone changes, persist to localStorage only if different
   useEffect(() => {
@@ -130,7 +149,7 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
               <Typography variant="subtitle2" sx={{ px:1, py:0.5 }}>Theme</Typography>
               <Divider sx={{ mb:1 }} />
               <List dense disablePadding>
-                {['basic black','full of fun','immersive art','Full cover'].map(name => (
+                {['basic black','full of fun','Full cover'].map(name => (
                   <ListItemButton key={name} onClick={() => { setThemeName(name); setThemeAnchor(null);} } sx={{ py:0.5 }}>
                     <Checkbox size="small" edge="start" tabIndex={-1} disableRipple checked={themeName === name} />
                     <ListItemText primary={name} />

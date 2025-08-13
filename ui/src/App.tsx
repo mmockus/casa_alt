@@ -24,7 +24,10 @@ import { API_BASE } from './config';
 
 export default function App() {
   const [selectedZone, setSelectedZone] = useState<string>('');
-  const [themeName, setThemeName] = useState<string>('basic black');
+  const [themeName, setThemeName] = useState<string>(() => {
+    const storedTheme = localStorage.getItem('themeName');
+    return storedTheme || 'basic black';
+  });
 
   // Lock body scroll for Full cover theme
   useEffect(() => {
