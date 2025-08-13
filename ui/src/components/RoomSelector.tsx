@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import PlaybackControls from './PlaybackControls';
 import { Box, CircularProgress, Typography, Stack, FormControl, Select, MenuItem, IconButton, Popover, Divider, List, ListItemButton, Checkbox, ListItemText } from '@mui/material';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -149,7 +150,7 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
               <Typography variant="subtitle2" sx={{ px:1, py:0.5 }}>Theme</Typography>
               <Divider sx={{ mb:1 }} />
               <List dense disablePadding>
-                {['basic black','full of fun','Full cover','New cover'].map(name => (
+                {['Basic Black','full of fun','Full cover','New cover'].map(name => (
                   <ListItemButton key={name} onClick={() => { setThemeName(name); setThemeAnchor(null);} } sx={{ py:0.5 }}>
                     <Checkbox size="small" edge="start" tabIndex={-1} disableRipple checked={themeName === name} />
                     <ListItemText primary={name} />

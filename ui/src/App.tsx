@@ -55,7 +55,7 @@ export default function App() {
           <RoomSelector compact selectedZone={selectedZone} setSelectedZone={setSelectedZone} themeName={themeName} setThemeName={setThemeName} />
         )}
         {selectedZone && <NowPlaying zoneName={selectedZone} themeName={themeName} />}
-    {(themeName === 'Full cover' || themeName === 'New cover') && (
+  {(themeName === 'Full cover' || themeName === 'New cover' || themeName === 'Basic Black') && (
           <Box sx={{ position:'fixed', top:0, left:0, right:0, px:2, pt:0.4, zIndex:10, display:'flex', justifyContent:'center', pointerEvents:'none' }}>
             <Box sx={{ backdropFilter:'blur(14px) brightness(0.9)', bgcolor:'rgba(0,0,0,0.35)', borderBottom:'1px solid rgba(255,255,255,0.15)', borderRadius:0, width:'100%', maxWidth:420, mx:'auto', pointerEvents:'auto', boxShadow:4, px:0.5 }}>
       <RoomSelector compact selectedZone={selectedZone} setSelectedZone={setSelectedZone} themeName={themeName} setThemeName={setThemeName} />

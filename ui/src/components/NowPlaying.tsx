@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import PlaybackControls from './PlaybackControls';
 import { Box, CircularProgress, Typography, LinearProgress, IconButton, Stack, Popover, Slider } from '@mui/material';
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -87,7 +88,7 @@ const NowPlaying: React.FC<Props> = ({ zoneName, themeName }) => {
   const song = nowPlaying.CurrSong as Song; const duration = song.Duration || 0; const progress = nowPlaying.CurrProgress || 0; const percent = duration>0 ? (progress/duration)*100 : 0; const isPlaying = nowPlaying.Status === 2;
   const nextSong = (nowPlaying && (nowPlaying.NextSong || (Array.isArray(nowPlaying.Queue)? nowPlaying.Queue[1]: null) || (Array.isArray(nowPlaying.PlayQueue)? nowPlaying.PlayQueue[1]: null))) || null;
 
-  if (themeName === 'Full cover' || themeName === 'New cover') {
+  if (themeName === 'Full cover' || themeName === 'New cover' || themeName === 'Basic Black') {
     // Custom 3-layer background for 'New cover'
     if (themeName === 'New cover') {
       return (
@@ -143,15 +144,166 @@ const NowPlaying: React.FC<Props> = ({ zoneName, themeName }) => {
               <LinearProgress variant="determinate" value={percent} sx={{ flex:1, height:5, borderRadius:3, bgcolor:'rgba(255,255,255,0.18)', '& .MuiLinearProgress-bar': { background:`linear-gradient(90deg, ${palette.dominant}, ${palette.accent})` } }} />
               <Typography variant="caption" sx={{ fontSize:'.55rem', minWidth:30, color:palette.text, textAlign:'right' }}>{formatTime(duration)}</Typography>
             </Stack>
-            <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt:0.7 }}>
-              <IconButton size="small" onClick={() => callApi('previous')} sx={{ color:palette.text, p:0.5 }}><SkipPreviousIcon fontSize="small" /></IconButton>
-              <IconButton size="small" onClick={() => callApi(isPlaying ? 'pause':'play')} sx={{ p:0.6, bgcolor:`${palette.dominant}55`, color:palette.text, '&:hover':{ bgcolor:`${palette.dominant}88` } }}>{isPlaying ? <PauseIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}</IconButton>
-              <Box sx={{ position:'relative', display:'inline-flex' }} onMouseEnter={handleNextHoverEnter} onMouseLeave={handleNextHoverLeave}>
-                <IconButton ref={(r)=> { nextBtnRef.current = r; }} size="small" onClick={() => callApi('next')} sx={{ color:palette.text, p:0.5 }}><SkipNextIcon fontSize="small" /></IconButton>
+            <PlaybackControls
+              isPlaying={isPlaying}
+              volume={volume}
+              onPlayPause={() => callApi(isPlaying ? 'pause' : 'play')}
+              onNext={() => callApi('next')}
+              onPrevious={() => callApi('previous')}
+              onVolumeClick={handleVolumeClick}
+              onMute={toggleMute}
+              volumeOpen={volumeOpen}
+              volumeAnchor={volumeAnchor}
+              onVolumeClose={handleVolumeClose}
+              onVolumeChange={updateVolume}
+              palette={palette}
+            />
+            {nextSong && nextSong.ArtworkURI && (
+              <Box
+                aria-label="next art thumb"
+                sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  right: { xs: 8, sm: 16 },
+                  transform: 'translateY(-50%)',
+                  width: { xs: '12vw', sm: '8vw', md: '70px', lg: '90px' },
+                  height: { xs: '12vw', sm: '8vw', md: '70px', lg: '90px' },
+                  maxWidth: '90px',
+                  maxHeight: '90px',
+                  minWidth: '44px',
+                  minHeight: '44px',
+                  borderRadius: 1,
+                  boxShadow: '0 4px 14px -4px rgba(0,0,0,0.7)',
+                  border: '1px solid rgba(255,255,255,0.25)',
+                  backgroundImage: `url(${nextSong.ArtworkURI})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  zIndex: 3,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'center',
+                }}
+              >
+                <Box sx={{
+                  position: 'absolute',
+                  top: 6,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  bgcolor: 'rgba(240,240,240,0.92)',
+                  color: '#333',
+                  px: 1,
+                  py: 0.2,
+                  borderRadius: 2,
+                  fontSize: '0.62rem',
+                  fontWeight: 600,
+                  boxShadow: '0 2px 8px -2px rgba(0,0,0,0.10)',
+                  zIndex: 4,
+                  letterSpacing: '0.03em',
+                  pointerEvents: 'none',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '70px',
+                }}>Up Next</Box>
+                {/* Marquee for next song info at bottom of album art */}
+                {nextSong && (
+                  <Box sx={{
+                    position: 'absolute',
+                    bottom: 6,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '90%',
+                    maxWidth: '110px',
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap',
+                    bgcolor: 'rgba(255,255,255,0.85)',
+                    borderRadius: 1,
+                    px: 0.5,
+                    py: 0.12,
+                    fontSize: '0.62rem',
+                    boxShadow: '0 2px 8px -2px rgba(0,0,0,0.08)',
+                    zIndex: 4,
+                  }}>
+                    <Box
+                      sx={{
+                        display: 'inline-block',
+                        minWidth: '100%',
+                        animation: (nextSong.Title && nextSong.Title.length > 18) ? 'marquee 18s linear infinite' : 'none',
+                      }}
+                    >
+                      <Box component="span" sx={{ fontWeight: 700, color: '#222', mr: 0.5 }}>{nextSong.Title}</Box>
+                      <Box component="span" sx={{ fontWeight: 400, color: '#333', mr: 0.5 }}>/ {nextSong.Artists || nextSong.Artist}</Box>
+                      {nextSong.Album && (
+                        <Box component="span" sx={{ fontStyle: 'italic', color: '#888' }}>/ {nextSong.Album}</Box>
+                      )}
+                    </Box>
+                  </Box>
+                )}
               </Box>
-              <IconButton size="small" onClick={handleVolumeClick} sx={{ color:palette.text, p:0.5 }}><VolumeUpIcon fontSize="small" /></IconButton>
-              <IconButton size="small" onClick={toggleMute} sx={{ color:palette.text, p:0.5 }}>{volume===0? <VolumeOffIcon fontSize="small" color="error" /> : <VolumeOffIcon fontSize="small" />}</IconButton>
+            )}
+            <Popover open={volumeOpen} anchorEl={volumeAnchor} onClose={handleVolumeClose} anchorOrigin={{ vertical: 'top', horizontal: 'center' }} transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+              <Box sx={{ p:1.2, width:140 }}>
+                <Typography variant="caption" sx={{ display:'block', textAlign:'center', mb:0.5, fontSize:'.6rem' }}>Vol {volume ?? '--'}</Typography>
+                <Slider value={typeof volume==='number'?volume:0} min={0} max={100} onChange={(_,v)=>updateVolume(v as number)} sx={{ '& .MuiSlider-track':{ bgcolor:palette.dominant, height:4 }, '& .MuiSlider-rail':{ height:4 }, '& .MuiSlider-thumb':{ bgcolor:palette.accent, width:14, height:14 } }} />
+              </Box>
+            </Popover>
+          </Box>
+          <style>{`@keyframes marquee {0%{transform:translateX(100%);}100%{transform:translateX(-100%);}}`}</style>
+        </Box>
+      );
+    }
+    if (themeName === 'Basic Black') {
+      return (
+        <Box sx={{ position:'fixed', inset:0, width:'100vw', height:'100vh', overflow:'hidden', zIndex:0, background:'#000' }}>
+          {/* No diffused album art layer, just solid black */}
+          {/* Layer 2: Album art aspect ratio preserved, fill either width or height */}
+          {song.ArtworkURI && (
+            <Box
+              component="img"
+              src={song.ArtworkURI}
+              alt={song.Title}
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                width: '100vw',
+                height: '100vh',
+                objectFit: 'contain',
+                zIndex: 1,
+                opacity: 0.95,
+                pointerEvents: 'none',
+                transition: 'opacity 1.4s ease',
+              }}
+            />
+          )}
+          {/* Layer 3: Controls (full NowPlaying UI) */}
+          <Box sx={{ position:'absolute', left:0, right:0, bottom:0, p:{xs:0.4, sm:0.6}, backdropFilter:'blur(14px) brightness(0.92)', bgcolor:'rgba(0,0,0,0.38)', borderTop:'1px solid rgba(255,255,255,0.12)', color:palette.text, zIndex:2, overflow:'hidden', '&:before': { content:'""', position:'absolute', top:-40, left:0, right:0, height:40, background:'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))', pointerEvents:'none' } }}>
+            <Box sx={{ width:'100%', overflow:'hidden', mb:0.2 }}>
+              <Typography variant="subtitle1" sx={{ fontSize:{xs:'.85rem', sm:'.95rem'}, whiteSpace:'nowrap', animation: song.Title.length > 40 ? 'marquee 18s linear infinite' : 'none', fontWeight:600, color:palette.text }}>{song.Title}</Typography>
+            </Box>
+            <Typography variant="caption" sx={{ fontSize:{xs:'.60rem', sm:'.65rem'}, letterSpacing:'.03em', opacity:0.9, color:palette.text, display:'flex', alignItems:'center', gap:0.6, whiteSpace:'nowrap', overflow:'hidden' }}>
+              <Box component="span" sx={{ overflow:'hidden', textOverflow:'ellipsis' }}>{song.Artists}</Box>
+              {song.Album && <Box component="span" sx={{ color:'rgba(255,255,255,0.55)', fontWeight:400, overflow:'hidden', textOverflow:'ellipsis', maxWidth:{xs:140, sm:220} }}>• {song.Album}</Box>}
+            </Typography>
+            <Stack direction="row" alignItems="center" spacing={0.8} sx={{ mt:0.4, pr:{xs:10, sm:15} }}>
+              <Typography variant="caption" sx={{ fontSize:'.55rem', minWidth:30, color:palette.text }}>{formatTime(progress)}</Typography>
+              <LinearProgress variant="determinate" value={percent} sx={{ flex:1, height:5, borderRadius:3, bgcolor:'rgba(255,255,255,0.18)', '& .MuiLinearProgress-bar': { background:`linear-gradient(90deg, ${palette.dominant}, ${palette.accent})` } }} />
+              <Typography variant="caption" sx={{ fontSize:'.55rem', minWidth:30, color:palette.text, textAlign:'right' }}>{formatTime(duration)}</Typography>
             </Stack>
+            <PlaybackControls
+              isPlaying={isPlaying}
+              volume={volume}
+              onPlayPause={() => callApi(isPlaying ? 'pause' : 'play')}
+              onNext={() => callApi('next')}
+              onPrevious={() => callApi('previous')}
+              onVolumeClick={handleVolumeClick}
+              onMute={toggleMute}
+              volumeOpen={volumeOpen}
+              volumeAnchor={volumeAnchor}
+              onVolumeClose={handleVolumeClose}
+              onVolumeChange={updateVolume}
+              palette={palette}
+            />
             {nextSong && nextSong.ArtworkURI && (
               <Box
                 aria-label="next art thumb"
@@ -326,23 +478,20 @@ const NowPlaying: React.FC<Props> = ({ zoneName, themeName }) => {
             <LinearProgress variant="determinate" value={percent} sx={{ flex:1, height:7, borderRadius:4, bgcolor:'rgba(255,255,255,0.18)', '& .MuiLinearProgress-bar': { background:`linear-gradient(90deg, ${palette.dominant}, ${palette.accent})` } }} />
             <Typography variant="caption" sx={{ minWidth:34, color:palette.text }}>{formatTime(duration)}</Typography>
           </Stack>
-          <Stack direction="row" spacing={1.8} justifyContent="center" sx={{ mt:1.2 }}>
-            <IconButton size="small" onClick={() => callApi('previous')} sx={{ color:palette.text }}><SkipPreviousIcon /></IconButton>
-            <IconButton size="small" onClick={() => callApi(isPlaying ? 'pause':'play')} sx={{ bgcolor:`${palette.dominant}55`, color:palette.text, '&:hover':{ bgcolor:`${palette.dominant}77` } }}>{isPlaying ? <PauseIcon /> : <PlayArrowIcon />}</IconButton>
-            <Box sx={{ position:'relative', display:'inline-flex' }} onMouseEnter={handleNextHoverEnter} onMouseLeave={handleNextHoverLeave}>
-              <IconButton ref={(r)=> { nextBtnRef.current = r; }} size="small" onClick={() => callApi('next')} sx={{ color:palette.text }}><SkipNextIcon /></IconButton>
-              {showNextPreview && nextSong && (
-                <Box sx={{ position:'absolute', bottom:'100%', mb:1, right:0, width:{xs:110, sm:130}, height:{xs:110, sm:130}, borderRadius:1.2, boxShadow:'0 6px 18px -6px rgba(0,0,0,0.8)', border:'1px solid rgba(255,255,255,0.25)', overflow:'hidden', backgroundImage: nextSong.ArtworkURI?`url(${nextSong.ArtworkURI})`: 'none', backgroundSize:'cover', backgroundPosition:'center', bgcolor:'rgba(0,0,0,0.55)', display:'flex', alignItems:'flex-end', justifyContent:'stretch' }}>
-                  <Box sx={{ width:'100%', backdropFilter:'blur(5px) brightness(0.95)', bgcolor:'rgba(0,0,0,0.45)', p:0.6 }}>
-                    <Typography variant="caption" sx={{ display:'block', fontSize:{xs:'0.58rem', sm:'0.65rem'}, fontWeight:600, lineHeight:1.15, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{nextSong.Title || 'Next'}</Typography>
-                    <Typography variant="caption" sx={{ display:'block', fontSize:{xs:'0.5rem', sm:'0.55rem'}, color:'rgba(255,255,255,0.70)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{nextSong.Artists || nextSong.Artist || ''}</Typography>
-                  </Box>
-                </Box>
-              )}
-            </Box>
-            <IconButton size="small" onClick={handleVolumeClick} sx={{ color:palette.text }}><VolumeUpIcon /></IconButton>
-            <IconButton size="small" onClick={toggleMute} sx={{ color:palette.text }}>{volume===0? <VolumeOffIcon color="error" /> : <VolumeOffIcon />}</IconButton>
-          </Stack>
+          <PlaybackControls
+            isPlaying={isPlaying}
+            volume={volume}
+            onPlayPause={() => callApi(isPlaying ? 'pause' : 'play')}
+            onNext={() => callApi('next')}
+            onPrevious={() => callApi('previous')}
+            onVolumeClick={handleVolumeClick}
+            onMute={toggleMute}
+            volumeOpen={volumeOpen}
+            volumeAnchor={volumeAnchor}
+            onVolumeClose={handleVolumeClose}
+            onVolumeChange={updateVolume}
+            palette={palette}
+          />
           <Popover open={volumeOpen} anchorEl={volumeAnchor} onClose={handleVolumeClose} anchorOrigin={{ vertical: 'top', horizontal: 'center' }} transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
             <Box sx={{ p:2, width:170 }}>
               <Typography variant="caption" sx={{ display:'block', textAlign:'center', mb:1 }}>Volume {volume ?? '--'}</Typography>
