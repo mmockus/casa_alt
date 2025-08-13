@@ -174,8 +174,67 @@ const NowPlaying: React.FC<Props> = ({ zoneName, themeName }) => {
                   backgroundPosition: 'center',
                   backgroundColor: 'rgba(255,255,255,0.08)',
                   zIndex: 3,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'center',
                 }}
-              />
+              >
+                <Box sx={{
+                  position: 'absolute',
+                  top: 6,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  bgcolor: 'rgba(240,240,240,0.92)',
+                  color: '#333',
+                  px: 1,
+                  py: 0.2,
+                  borderRadius: 2,
+                  fontSize: '0.62rem',
+                  fontWeight: 600,
+                  boxShadow: '0 2px 8px -2px rgba(0,0,0,0.10)',
+                  zIndex: 4,
+                  letterSpacing: '0.03em',
+                  pointerEvents: 'none',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '70px',
+                }}>Up Next</Box>
+                {/* Marquee for next song info at bottom of album art */}
+                {nextSong && (
+                  <Box sx={{
+                    position: 'absolute',
+                    bottom: 6,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '90%',
+                    maxWidth: '110px',
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap',
+                    bgcolor: 'rgba(255,255,255,0.85)',
+                    borderRadius: 1,
+                    px: 0.5,
+                    py: 0.12,
+                    fontSize: '0.62rem',
+                    boxShadow: '0 2px 8px -2px rgba(0,0,0,0.08)',
+                    zIndex: 4,
+                  }}>
+                    <Box
+                      sx={{
+                        display: 'inline-block',
+                        minWidth: '100%',
+                        animation: (nextSong.Title && nextSong.Title.length > 18) ? 'marquee 18s linear infinite' : 'none',
+                      }}
+                    >
+                      <Box component="span" sx={{ fontWeight: 700, color: '#222', mr: 0.5 }}>{nextSong.Title}</Box>
+                      <Box component="span" sx={{ fontWeight: 400, color: '#333', mr: 0.5 }}>/ {nextSong.Artists || nextSong.Artist}</Box>
+                      {nextSong.Album && (
+                        <Box component="span" sx={{ fontStyle: 'italic', color: '#888' }}>/ {nextSong.Album}</Box>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+              </Box>
             )}
             <Popover open={volumeOpen} anchorEl={volumeAnchor} onClose={handleVolumeClose} anchorOrigin={{ vertical: 'top', horizontal: 'center' }} transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
               <Box sx={{ p:1.2, width:140 }}>
