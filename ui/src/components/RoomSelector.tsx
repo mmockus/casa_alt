@@ -149,7 +149,7 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
               <Typography variant="subtitle2" sx={{ px:1, py:0.5 }}>Theme</Typography>
               <Divider sx={{ mb:1 }} />
               <List dense disablePadding>
-                {['basic black','full of fun','Full cover'].map(name => (
+                {['basic black','full of fun','Full cover','New cover'].map(name => (
                   <ListItemButton key={name} onClick={() => { setThemeName(name); setThemeAnchor(null);} } sx={{ py:0.5 }}>
                     <Checkbox size="small" edge="start" tabIndex={-1} disableRipple checked={themeName === name} />
                     <ListItemText primary={name} />
