@@ -1,3 +1,5 @@
+// Theme names used in the app
+export type ThemeName = 'Basic Black' | 'Funcicle' | 'full of fun' | 'Full cover' | 'Robust' | 'immersive art';
 export interface Zone {
   ZoneID: number;
   Name: string;

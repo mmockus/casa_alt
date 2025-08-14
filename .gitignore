@@ -4,3 +4,6 @@ build
 dist
 .DS_Store
 .env
+
+# Ignore VS Code settings
+.vscode/

@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  DOCKER_IMAGE: mmockus/mycasa
+  REACT_APP_API_BASE: http://casaserver.local
+  REACT_APP_API_PORT: 8735
+  TAG_PREFIX: v
+
+jobs:
+  build:
+    name: Build & Test (PR / Push)
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ci-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ui
+        run: npm ci --no-audit --no-fund
+
+      - name: Run tests
+        working-directory: ui
+        run: npm test -- --watchAll=false
+
+      - name: Build (React)
+        working-directory: ui
+        run: npm run build
+        env:
+          REACT_APP_API_BASE: ${{ env.REACT_APP_API_BASE }}
+          REACT_APP_API_PORT: ${{ env.REACT_APP_API_PORT }}
+
+      - name: Docker meta (derive version)
+        id: meta
+        run: |
+          VERSION=$(jq -r '.version' ui/package.json)
+          BRANCH_TAG=$(echo "${GITHUB_REF_NAME}" | tr '/' '-' | tr -cd '[:alnum:]._-')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "branch_tag=$BRANCH_TAG" >> $GITHUB_OUTPUT
+          echo "Using version $VERSION branch tag $BRANCH_TAG"
+
+      - name: Create Git Tag & Release (if main push)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: release
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG_PREFIX: ${{ env.TAG_PREFIX }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git fetch --prune --unshallow || git fetch --prune || true
+          TAG="${TAG_PREFIX}${VERSION}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; skipping creation.";
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+          else
+            echo "Creating tag $TAG";
+            git config user.name "github-actions"
+            git config user.email "github-actions@users.noreply.github.com"
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+          fi
+          # Create / update release via GitHub CLI if available
+          if command -v gh >/dev/null 2>&1; then
+            gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes "Automated release for version $VERSION"
+          else
+            echo "gh CLI not installed; skipping release creation (tag exists)."
+          fi
+
+      - name: Build Docker image (no push on PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          docker build \
+            --build-arg REACT_APP_API_BASE=${{ env.REACT_APP_API_BASE }} \
+            --build-arg REACT_APP_API_PORT=${{ env.REACT_APP_API_PORT }} \
+            -t $DOCKER_IMAGE:pr-${{ steps.meta.outputs.branch_tag }} \
+            .
+
+      - name: Login to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          # REQUIRED REPO SECRETS:
+          #   DOCKERHUB_USERNAME - your Docker Hub user/org
+          #   DOCKERHUB_TOKEN    - Docker Hub PAT (Read/Write)
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & Push Docker image (main branch)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+            VERSION=${{ steps.meta.outputs.version }}
+            GIT_TAG=${{ steps.release.outputs.tag }}
+            if [ -z "$GIT_TAG" ]; then GIT_TAG="v${{ steps.meta.outputs.version }}"; fi
+            BRANCH=${{ steps.meta.outputs.branch_tag }}
+            echo "Building image tags: latest, $VERSION, $GIT_TAG, $BRANCH"
+            docker build \
+              --build-arg REACT_APP_API_BASE=${{ env.REACT_APP_API_BASE }} \
+              --build-arg REACT_APP_API_PORT=${{ env.REACT_APP_API_PORT }} \
+              -t $DOCKER_IMAGE:latest \
+              -t $DOCKER_IMAGE:$VERSION \
+              -t $DOCKER_IMAGE:$GIT_TAG \
+              -t $DOCKER_IMAGE:$BRANCH \
+              .
+            docker push $DOCKER_IMAGE:latest
+            docker push $DOCKER_IMAGE:$VERSION
+            docker push $DOCKER_IMAGE:$GIT_TAG
+            docker push $DOCKER_IMAGE:$BRANCH
+
+      - name: Summary
+        run: |
+          echo "CI complete." >> $GITHUB_STEP_SUMMARY
+          echo "Version: ${{ steps.meta.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "Pushed tags: latest, ${{ steps.meta.outputs.version }}, v${{ steps.meta.outputs.version }}, ${{ steps.meta.outputs.branch_tag }}" >> $GITHUB_STEP_SUMMARY
+          fi

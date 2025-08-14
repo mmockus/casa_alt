@@ -5,15 +5,17 @@ import MenuIcon from '@mui/icons-material/Menu';
 import { Zone } from '../types';
 import { API_BASE } from '../config';
 
+import { themes, ThemeConfig } from '../themeConfig';
+
 interface Props {
   selectedZone: string;
   setSelectedZone: (z: string) => void;
-  themeName: string;
-  setThemeName: (t: string) => void;
+  theme: ThemeConfig;
+  setTheme: (t: ThemeConfig) => void;
   compact?: boolean;
 }
 
-export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, themeName, setThemeName, compact }) => {
+export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, theme, setTheme, compact }) => {
   const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +24,32 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
   const [groupLoading, setGroupLoading] = useState(false);
   const [themeAnchor, setThemeAnchor] = useState<HTMLElement | null>(null);
   const themeOpen = Boolean(themeAnchor);
+
+  // On first mount, restore selectedZone and theme from localStorage only if not already set
+  useEffect(() => {
+    // On initial mount, set selectedZone and theme from localStorage if present
+    const storedZone = localStorage.getItem('selectedZone');
+    if (storedZone) setSelectedZone(storedZone);
+    const storedTheme = localStorage.getItem('themeName');
+    const found = themes.find(t => t.name === storedTheme);
+    if (found) setTheme(found);
+    // Only run once
+    // eslint-disable-next-line
+  }, []);
+
+  // Store selectedZone to localStorage when it changes
+  useEffect(() => {
+    if (selectedZone) {
+      localStorage.setItem('selectedZone', selectedZone);
+    }
+  }, [selectedZone]);
+
+  // When selectedZone changes, persist to localStorage only if different
+  useEffect(() => {
+    if (selectedZone && localStorage.getItem('selectedZone') !== selectedZone) {
+      localStorage.setItem('selectedZone', selectedZone);
+    }
+  }, [selectedZone]);
 
   useEffect(() => {
     (async () => {
@@ -39,12 +67,18 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
 
   const mini = compact;
   return (
-    <Box sx={{ p: mini ? 0.5 : 4, pt: mini ? 0.3 : 4, maxWidth: 600, mx: 'auto' }}>
+    <Box sx={{ p: mini ? 0.5 : 4, pt: mini ? 0.3 : 4, maxWidth: 380, mx: 'auto' }}>
       {loading ? <CircularProgress /> : error ? <Typography color="error">{error}</Typography> : (
         <Stack direction="row" spacing={mini ? 0.6 : 1} alignItems="center" justifyContent="center" sx={{ mx: 'auto' }}>
-          <Typography variant="caption" sx={{ whiteSpace: 'nowrap', color: 'text.disabled', fontSize: mini ? '0.55rem' : '0.70rem', letterSpacing: '.05rem', opacity:0.8 }}>Room</Typography>
-          <FormControl size="small" sx={{ mt: 0, width: mini ? '42%' : '50%' }}>
-            <Select value={selectedZone} displayEmpty onChange={e => setSelectedZone(e.target.value as string)} size="small" sx={{ fontSize: mini ? '0.65rem' : undefined, '.MuiSelect-select': { py: mini ? 0.4 : 0.8, px: mini ? 1 : 1.4 } }}>
+          <FormControl size="small" sx={{ mt: 0, width: compact ? '126%' : '150%' }}>
+            <Select value={selectedZone || ''} displayEmpty onChange={e => setSelectedZone(e.target.value as string)} size="small" sx={{ fontSize: compact ? '0.65rem' : undefined, '.MuiSelect-select': { py: compact ? 0.4 : 0.8, px: compact ? 1 : 1.4 } }}>
+              {!selectedZone && (
+                <MenuItem value="" disabled>
+                  <Typography component="span" sx={{ color: 'grey.500', fontStyle: 'italic', fontSize: mini ? '0.65rem' : '0.8rem' }}>
+                    Select a room
+                  </Typography>
+                </MenuItem>
+              )}
               {zones.map(zone => (
                 <MenuItem key={zone.ZoneID} value={zone.Name}>
                   <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>
@@ -96,14 +130,14 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
               <Typography variant="subtitle2" sx={{ px:1, py:0.5 }}>Theme</Typography>
               <Divider sx={{ mb:1 }} />
               <List dense disablePadding>
-                {['basic black','full of fun','immersive art','Full cover'].map(name => (
-                  <ListItemButton key={name} onClick={() => { setThemeName(name); setThemeAnchor(null);} } sx={{ py:0.5 }}>
-                    <Checkbox size="small" edge="start" tabIndex={-1} disableRipple checked={themeName === name} />
-                    <ListItemText primary={name} />
+                {themes.map(t => (
+                  <ListItemButton key={t.name} onClick={() => { setTheme(t); setThemeAnchor(null);} } sx={{ py:0.5 }}>
+                    <Checkbox size="small" edge="start" tabIndex={-1} disableRipple checked={theme.name === t.name} />
+                    <ListItemText primary={t.name} />
                   </ListItemButton>
                 ))}
               </List>
-              <Typography variant="caption" color="text.secondary" sx={{ mt:1, mb:1, display:'block' }}>Full of fun = animated background.</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ mt:1, mb:1, display:'block' }}>Theme settings are now config-driven.</Typography>
             </Box>
           </Popover>
         </Stack>
