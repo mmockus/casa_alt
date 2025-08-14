@@ -106,6 +106,44 @@ docker compose build casatunes-ui
 docker compose up -d casatunes-ui
 ```
 
+### Run From Docker Hub (Pre-built Image)
+Pre-built images: `mmockus/mycasa`.
+
+Quick start (always pulls the newest published build):
+```
+docker run -d --name mycasa-ui -p 8080:80 mmockus/mycasa:latest
+```
+Open: http://localhost:8080
+
+Optional: Pin to a specific version for reproducibility (recommended for production deployments):
+```
+docker pull mmockus/mycasa:0.0.2-preview
+docker run -d --name mycasa-ui -p 8080:80 mmockus/mycasa:0.0.2-preview
+```
+
+Environment Variables Note:
+This app (Create React App) bakes API config at build time. Passing `-e REACT_APP_API_BASE=...` at `docker run` WILL NOT change the already compiled value in the downloaded image. To target a different CasaTunes host you can:
+- Provide a DNS alias (e.g. set local DNS so `casaserver.local` resolves to your server), OR
+- Rebuild your own image with build args:
+	```
+	docker build \
+		--build-arg REACT_APP_API_BASE=http://your-host.local \
+		--build-arg REACT_APP_API_PORT=8735 \
+		-t yourrepo/mycasa:custom .
+	```
+
+Update to the latest build:
+```
+docker pull mmockus/mycasa:latest
+docker stop mycasa-ui && docker rm mycasa-ui
+docker run -d --name mycasa-ui -p 8080:80 mmockus/mycasa:latest
+```
+
+Healthcheck: The image includes an HTTP healthcheck on `/`. You can inspect status with:
+```
+docker inspect --format '{{json .State.Health}}' mycasa-ui | jq
+```
+
 ### Deploying Remotely
 1. Copy repo or distribution bundle to target host.
 2. Provide a production `.env` with correct host (e.g. `REACT_APP_API_BASE=http://casatunes.lan`).
