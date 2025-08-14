@@ -58,16 +58,13 @@ jobs:
           echo "Logging in to Docker Hub..."
           echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
           VERSION='${{ steps.meta.outputs.version }}'
-          TAG='${{ steps.meta.outputs.tag }}'
-          echo "Building image for $TAG / $VERSION"
+          echo "Building image for version $VERSION (no v-prefixed image tag)"
           docker build \
             --build-arg REACT_APP_API_BASE=$REACT_APP_API_BASE \
             --build-arg REACT_APP_API_PORT=$REACT_APP_API_PORT \
             -t $DOCKER_IMAGE:$VERSION \
-            -t $DOCKER_IMAGE:$TAG \
             .
           docker push $DOCKER_IMAGE:$VERSION
-          docker push $DOCKER_IMAGE:$TAG
           MAIN_SHA=$(git rev-parse origin/main || git rev-parse main || echo '')
           RELEASE_SHA='${{ github.event.release.target_commitish }}'
           if [ -n "$MAIN_SHA" ] && [ "$MAIN_SHA" = "$RELEASE_SHA" ]; then
@@ -89,5 +86,5 @@ jobs:
         run: |
           echo "Release follow-up complete for ${{ steps.meta.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
           echo "Version: ${{ steps.meta.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "Pushed tags: ${{ steps.meta.outputs.version }}, ${{ steps.meta.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "Pushed tags: ${{ steps.meta.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "Refer to VERSIONING.md for strategy details." >> $GITHUB_STEP_SUMMARY
