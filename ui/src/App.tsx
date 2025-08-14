@@ -1,14 +1,11 @@
-
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, ThemeProvider, CssBaseline } from '@mui/material';
 import { createTheme } from '@mui/material/styles';
 // Components
 import RoomSelector from './components/RoomSelector';
-import KaleidoscopeBackground from './components/KaleidoscopeBackground';
 import NowPlaying from './components/NowPlaying';
 // Types & utils
-import { NowPlayingResponse, Song, ThemeName } from './types';
-import { API_BASE } from './config';
+import { themes, ThemeConfig } from './themeConfig';
 
 
 // API base now centralized in config.ts
@@ -24,49 +21,29 @@ import { API_BASE } from './config';
 
 export default function App() {
   const [selectedZone, setSelectedZone] = useState<string>('');
-  const [themeName, setThemeName] = useState<ThemeName>(() => {
+  const [theme, setTheme] = useState<ThemeConfig>(() => {
     const storedTheme = localStorage.getItem('themeName');
-    if (storedTheme === 'Basic Black' || storedTheme === 'Funcicle' || storedTheme === 'full of fun' || storedTheme === 'Full cover' || storedTheme === 'New cover' || storedTheme === 'immersive art') {
-      return storedTheme as ThemeName;
-    }
-    return 'Basic Black';
+    const found = themes.find(t => t.name === storedTheme);
+    return found || themes[1]; // Default to Robust
   });
 
-  // Lock body scroll for Full cover theme
-  useEffect(() => {
-  if (themeName === 'Full cover' || themeName === 'Robust') {
-      const prevOverflow = document.documentElement.style.overflow;
-      document.documentElement.style.overflow = 'hidden';
-      return () => { document.documentElement.style.overflow = prevOverflow; };
-    }
-  }, [themeName]);
+  // Persist theme selection
+  useEffect(() => { localStorage.setItem('themeName', theme.name); }, [theme]);
 
   // For now both themes identical; scaffold for future differentiation
-  const theme = React.useMemo(() => createTheme({
-    palette: { mode: 'dark' },
-    components: {
-  MuiCard: { styleOverrides: { root: themeName === 'Basic Black' ? {} : {} } }
-    }
-  }), [themeName]);
+  const muiTheme = React.useMemo(() => createTheme({ palette: { mode: 'dark' } }), []);
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-  {themeName === 'full of fun' && <KaleidoscopeBackground />}
-      <Box sx={{ position:'relative', zIndex:1 }}>
-  {themeName !== 'Full cover' && themeName !== 'Robust' && (
-          <RoomSelector compact selectedZone={selectedZone} setSelectedZone={setSelectedZone} themeName={themeName} setThemeName={setThemeName} />
-        )}
-        {selectedZone && <NowPlaying zoneName={selectedZone} themeName={themeName} />}
-  {(themeName === 'Full cover' || themeName === 'Robust' || themeName === 'Basic Black') && (
-          <Box sx={{ position:'fixed', top:0, left:0, right:0, px:2, pt:0.4, zIndex:10, display:'flex', justifyContent:'center', pointerEvents:'none' }}>
-            <Box sx={{ backdropFilter:'blur(14px) brightness(0.9)', bgcolor:'rgba(0,0,0,0.35)', borderBottom:'1px solid rgba(255,255,255,0.15)', borderRadius:0, width:'100%', maxWidth:420, mx:'auto', pointerEvents:'auto', boxShadow:4, px:0.5 }}>
-      <RoomSelector compact selectedZone={selectedZone} setSelectedZone={setSelectedZone} themeName={themeName} setThemeName={setThemeName} />
-            </Box>
-          </Box>
-        )}
-        
+  <ThemeProvider theme={muiTheme}>
+    <CssBaseline />
+    <Box sx={{ position: 'fixed', top: 20, left: 0, width: '100%', zIndex: 9999, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+      <Box sx={{ pointerEvents: 'auto', borderRadius: 24, boxShadow: 4, bgcolor: 'background.paper', height: 24, minWidth: 320, maxWidth: 420, mx: 'auto', display: 'flex', alignItems: 'center', py: 0, px: 2.5 }}>
+        <RoomSelector compact selectedZone={selectedZone} setSelectedZone={setSelectedZone} theme={theme} setTheme={setTheme} />
       </Box>
-    </ThemeProvider>
+    </Box>
+    <Box sx={{ position: 'relative', zIndex: 1 }}>
+      {selectedZone && <NowPlaying zoneName={selectedZone} theme={theme} />}
+    </Box>
+  </ThemeProvider>
   );
 }

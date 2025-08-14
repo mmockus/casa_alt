@@ -12,9 +12,11 @@ RUN npm ci --no-audit --no-fund
 # Copy source
 COPY ui/ ./
 
-# Build-time API base override (baked into bundle)
+# Build-time API base + port overrides (baked into bundle)
 ARG REACT_APP_API_BASE
+ARG REACT_APP_API_PORT
 ENV REACT_APP_API_BASE=${REACT_APP_API_BASE}
+ENV REACT_APP_API_PORT=${REACT_APP_API_PORT}
 RUN npm run build
 
 FROM nginx:1.29.0-alpine-slim AS runtime

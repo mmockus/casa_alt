@@ -5,8 +5,14 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_BASE: "http://<CASATUNES_HOST>:8735/api/v1"
+        # Provide ONLY protocol+host (no port). Pulled from root .env or shell env with fallback.
+        REACT_APP_API_BASE: ${REACT_APP_API_BASE:-http://casaserver.local}
+        # Optional CasaTunes API port (defaults to 8735 if unset)
+        REACT_APP_API_PORT: ${REACT_APP_API_PORT:-8735}
     ports:
-      - "8080:80"
+      - "${DOCKER_APP_PORT:-8080}:80"
     restart: unless-stopped
     image: casatunes-ui:latest
+    # Load variables for runtime container environment (not needed just for build arg substitution)
+    env_file:
+      - .env

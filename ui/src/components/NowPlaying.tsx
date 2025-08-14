@@ -1,12 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import PlaybackControls from './PlaybackControls';
-import { Box, CircularProgress, Typography, LinearProgress, IconButton, Stack, Popover, Slider } from '@mui/material';
-import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
-import SkipNextIcon from '@mui/icons-material/SkipNext';
-import VolumeUpIcon from '@mui/icons-material/VolumeUp';
-import VolumeOffIcon from '@mui/icons-material/VolumeOff';
+import { Box, CircularProgress, Typography, LinearProgress, Stack, Popover, Slider } from '@mui/material';
 import { NowPlayingResponse, Song } from '../types';
 import { formatTime } from '../utils';
 import { API_BASE } from '../config';
@@ -24,28 +18,10 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme }) => {
   const [volumeAnchor, setVolumeAnchor] = useState<HTMLElement | null>(null);
   const volumeOpen = Boolean(volumeAnchor);
   const [previousVolume, setPreviousVolume] = useState<number | null>(null);
-  const [showNextPreview, setShowNextPreview] = useState(false);
-  const nextHoverTimeout = useRef<any>(null);
-  const nextBtnRef = useRef<HTMLButtonElement | null>(null);
+  // Removed unused preview / hover refs for next song artwork.
   const [palette, setPalette] = useState<{dominant:string; accent:string; text:string}>({dominant:'#444', accent:'#888', text:'#fff'});
-  const [bgStack, setBgStack] = useState<Array<{src:string; id:number}>>([]);
-  const nextIdRef = useRef(1);
-
-  // Marquee scroll logic: only scroll if text overflows
-  useEffect(() => {
-    const titleEl = document.getElementById('nowplaying-title');
-    if (!titleEl) return;
-    const parent = titleEl.parentElement;
-    if (!parent) return;
-    const needsScroll = titleEl.scrollWidth > parent.offsetWidth;
-    if (needsScroll) {
-      titleEl.style.animation = 'marquee 18s linear infinite';
-      titleEl.style.transform = '';
-    } else {
-      titleEl.style.animation = 'none';
-      titleEl.style.transform = 'translateX(0)';
-    }
-  }, [nowPlaying?.CurrSong?.Title]);
+  // Debounce timer ref for volume updates
+  const volumeDebounceRef = useRef<number | null>(null);
 
   // Marquee scroll logic: only scroll if text overflows
   useEffect(() => {
@@ -67,31 +43,54 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme }) => {
 
   useEffect(() => {
     if (!zoneName) return;
-    let cancelled = false;
     setLoading(true); setError(null); setNowPlaying(null); setVolume(null);
-    const fetchNowPlaying = () => {
-      fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}/nowplaying`)
-        .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
-        .then(data => { if (!cancelled) setNowPlaying(data); })
-        .catch(e => { if (!cancelled) setError(e.message || 'Unknown error'); })
-        .finally(() => { if (!cancelled) setLoading(false); });
+
+    const controllerNowPlaying = new AbortController();
+    const controllerVolume = new AbortController();
+    let cancelled = false;
+
+    const fetchNowPlaying = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}/nowplaying`, { signal: controllerNowPlaying.signal });
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        const data = await res.json();
+        if (!cancelled) setNowPlaying(data);
+      } catch (e:any) {
+        if (!cancelled && e.name !== 'AbortError') setError(e.message || 'Unknown error');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
-    const fetchVolume = () => {
-      fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}`)
-        .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
-        .then(data => { const v = data?.Volume; if (!cancelled && typeof v === 'number') { setVolume(v); setPreviousVolume(p => (v > 0 && p == null) ? v : p); } })
-        .catch(()=>{});
+
+    const fetchVolume = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}`, { signal: controllerVolume.signal });
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        const data = await res.json();
+        const v = data?.Volume;
+        if (!cancelled && typeof v === 'number') {
+          setVolume(v);
+          setPreviousVolume(p => (v > 0 && p == null) ? v : p);
+        }
+      } catch {/* ignore volume errors */}
     };
-    fetchNowPlaying(); fetchVolume();
+
+    fetchNowPlaying();
+    fetchVolume();
     const interval = setInterval(fetchNowPlaying, 1000);
     const volInterval = setInterval(fetchVolume, 3000);
-    return () => { cancelled = true; clearInterval(interval); clearInterval(volInterval); };
+    return () => {
+      cancelled = true;
+      controllerNowPlaying.abort();
+      controllerVolume.abort();
+      clearInterval(interval);
+      clearInterval(volInterval);
+    };
   }, [zoneName, refreshKey]);
 
   useEffect(() => {
     if (!theme.Diffused_Background) return;
     const src = nowPlaying?.CurrSong?.ArtworkURI; if (!src) return;
-    setBgStack(prev => { if (prev.length && prev[prev.length - 1].src === src) return prev; const id = nextIdRef.current++; return [...prev, { src, id }].slice(-2); });
     const img = new Image(); img.crossOrigin='anonymous'; img.src = src; img.onload = () => {
       try {
         const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); if (!ctx) return;
@@ -100,20 +99,34 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme }) => {
         for (let i=0;i<data.length;i+=4){ const a=data[i+3]; if (a<128) continue; const r=data[i],g=data[i+1],b=data[i+2]; const mx=Math.max(r,g,b), mn=Math.min(r,g,b); if (mx-mn<18) continue; const key=`${r>>4}-${g>>4}-${b>>4}`; if(!buckets[key]) buckets[key]={r:0,g:0,b:0,count:0}; buckets[key].r+=r; buckets[key].g+=g; buckets[key].b+=b; buckets[key].count++; total++; }
         let dominant='#444', accent='#888'; if (total>0){ const sorted=Object.values(buckets).sort((a,b)=>b.count-a.count); const toHex=(v:number)=>('0'+v.toString(16)).slice(-2); if(sorted[0]) dominant=`#${toHex(Math.round(sorted[0].r/sorted[0].count))}${toHex(Math.round(sorted[0].g/sorted[0].count))}${toHex(Math.round(sorted[0].b/sorted[0].count))}`; if(sorted[1]) accent=`#${toHex(Math.round(sorted[1].r/sorted[1].count))}${toHex(Math.round(sorted[1].g/sorted[1].count))}${toHex(Math.round(sorted[1].b/sorted[1].count))}`; else accent=dominant; }
         const dr=parseInt(dominant.slice(1,3),16); const dg=parseInt(dominant.slice(3,5),16); const db=parseInt(dominant.slice(5,7),16); const lum=0.2126*dr+0.7152*dg+0.0722*db; const text= lum>150?'#111':'#fff'; setPalette({dominant,accent,text});
-      } catch{}
+      } catch{/* ignore palette errors */}
     };
   }, [theme.Diffused_Background, nowPlaying?.CurrSong?.ArtworkURI]);
 
-  const callApi = async (action: 'play' | 'pause' | 'next' | 'previous') => {
-    try { await fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}/player/${action}`); refresh(); } catch { refresh(); }
-  };
-  const updateVolume = (newVol:number) => {
-    setVolume(newVol); if (newVol>0) setPreviousVolume(newVol); if ((updateVolume as any).t) clearTimeout((updateVolume as any).t);
-    (updateVolume as any).t = setTimeout(()=> { fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}?Volume=${newVol}`).catch(()=>{}); },200);
-  };
-  const toggleMute = () => { if (volume===0){ const restore = previousVolume && previousVolume>0 ? previousVolume : 25; updateVolume(restore); } else if (typeof volume==='number'){ if (volume>0) setPreviousVolume(volume); updateVolume(0);} };
-  const handleNextHoverEnter = () => { if (nextHoverTimeout.current) clearTimeout(nextHoverTimeout.current); setShowNextPreview(true); };
-  const handleNextHoverLeave = () => { if (nextHoverTimeout.current) clearTimeout(nextHoverTimeout.current); nextHoverTimeout.current = setTimeout(()=> setShowNextPreview(false),140); };
+  const callApi = useCallback(async (action: 'play' | 'pause' | 'next' | 'previous') => {
+    try { await fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}/player/${action}`); }
+    finally { refresh(); }
+  }, [zoneName]);
+
+  const updateVolume = useCallback((newVol:number) => {
+    setVolume(newVol);
+    if (newVol>0) setPreviousVolume(newVol);
+    if (volumeDebounceRef.current) window.clearTimeout(volumeDebounceRef.current);
+    volumeDebounceRef.current = window.setTimeout(() => {
+      fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}?Volume=${newVol}`).catch(()=>{});
+    }, 200);
+  }, [zoneName]);
+
+  const toggleMute = useCallback(() => {
+    if (volume === 0) {
+      const restore = previousVolume && previousVolume>0 ? previousVolume : 25;
+      updateVolume(restore);
+    } else if (typeof volume === 'number') {
+      if (volume > 0) setPreviousVolume(volume);
+      updateVolume(0);
+    }
+  }, [volume, previousVolume, updateVolume]);
+
   const handleVolumeClick = (e:React.MouseEvent<HTMLElement>) => setVolumeAnchor(e.currentTarget);
   const handleVolumeClose = () => setVolumeAnchor(null);
 
@@ -127,18 +140,21 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme }) => {
   const progress = nowPlaying.CurrProgress || 0;
   const percent = duration > 0 ? (progress / duration) * 100 : 0;
   const isPlaying = nowPlaying.Status === 2;
-  const nextSong = (nowPlaying && (nowPlaying.NextSong || (Array.isArray(nowPlaying.Queue) ? nowPlaying.Queue[1] : null) || (Array.isArray(nowPlaying.PlayQueue) ? nowPlaying.PlayQueue[1] : null))) || null;
+  const nextSong: Song | null = (nowPlaying?.NextSong as Song)
+    || (Array.isArray(nowPlaying?.Queue) ? nowPlaying!.Queue[1] : undefined as any)
+    || (Array.isArray(nowPlaying?.PlayQueue) ? nowPlaying!.PlayQueue[1] : undefined as any)
+    || null;
 
   if (theme.name === 'Robust' && theme.Diffused_Background) {
     // Diffused album art background for Robust
     return (
       <Box sx={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: 0 }}>
         {/* Layer 1: Diffused, cropped album art filling screen */}
-        {song.ArtworkURI && (
+    {song.ArtworkURI && (
           <Box
             component="img"
-            src={song.ArtworkURI}
-            alt={song.Title}
+      src={song.ArtworkURI}
+      alt={`Artwork for ${song.Title}`}
             sx={{
               position: 'absolute',
               inset: 0,
@@ -152,11 +168,11 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme }) => {
           />
         )}
         {/* Layer 2: Album art aspect ratio preserved, fill either width or height */}
-        {song.ArtworkURI && (
+    {song.ArtworkURI && (
           <Box
             component="img"
-            src={song.ArtworkURI}
-            alt={song.Title}
+      src={song.ArtworkURI}
+      alt={`Artwork for ${song.Title}`}
             sx={{
               position: 'absolute',
               inset: 0,
@@ -318,11 +334,11 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme }) => {
       <Box sx={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: 0 }}>
         <KaleidoscopeBackground />
         {/* Layer 2: Album art aspect ratio preserved, fill either width or height */}
-        {song.ArtworkURI && (
+    {song.ArtworkURI && (
           <Box
             component="img"
-            src={song.ArtworkURI}
-            alt={song.Title}
+      src={song.ArtworkURI}
+      alt={`Artwork for ${song.Title}`}
             sx={{
               position: 'absolute',
               inset: 0,
@@ -467,11 +483,11 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme }) => {
   return (
     <Box sx={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: 0, background: '#000' }}>
       {/* Layer 2: Album art aspect ratio preserved, fill either width or height */}
-      {song.ArtworkURI && (
+    {song.ArtworkURI && (
         <Box
           component="img"
-          src={song.ArtworkURI}
-          alt={song.Title}
+      src={song.ArtworkURI}
+      alt={`Artwork for ${song.Title}`}
           sx={{
             position: 'absolute',
             inset: 0,
