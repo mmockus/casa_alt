@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Stack, Divider, FormControlLabel, Checkbox, Alert, Box } from '@mui/material';
 import { ThemeConfig } from '../themeConfig';
-import { CANVAS_DEFAULT_VIDEO } from '../config';
+import { CANVAS_DEFAULT_VIDEO, CANVAS_API } from '../config';
 
 interface SettingsModalProps {
   open: boolean;
@@ -94,6 +94,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, theme }) =
           <Alert severity="info" variant="outlined" sx={{ fontSize: '0.7rem', py: 0.5 }}>
             Enable to surface raw Spotify track / album / artist / playlist URIs (feature wiring pending).
           </Alert>
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Canvas API</Typography>
+            <Box sx={{ fontFamily: 'monospace', fontSize: '0.66rem', lineHeight: 1.3, bgcolor: 'background.default', p:0.6, borderRadius:1, border: '1px solid rgba(255,255,255,0.06)' }}>
+              {CANVAS_API ? CANVAS_API : '(unset)'}
+            </Box>
+          </Box>
           <Divider flexItem />
           <Typography variant="subtitle2">Stored Local Settings</Typography>
           <Box sx={{ fontFamily: 'monospace', fontSize: '0.65rem', lineHeight: 1.4, bgcolor: 'background.default', p:1, borderRadius:1, maxHeight:200, overflow:'auto', border: theme ? '1px solid rgba(255,255,255,0.08)' : undefined }}>

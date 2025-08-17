@@ -9,12 +9,13 @@ import { ThemeConfig } from '../themeConfig';
 
 import SpotifyUris from './SpotifyUris';
 
-interface Props { zoneName: string; theme: ThemeConfig; showSpotifyUris?: boolean; onArtworkChange?: (uri:string|null)=>void; onSongIdentityChange?: (id:string|null)=>void; onSpotifyTrackChange?: (trackId:string|null)=>void; canvasMeta?: { canvas_url?: string | null; canvas_not_found?: boolean }; nowPlayingExternal?: NowPlayingResponse; }
+interface Props { zoneName: string; theme: ThemeConfig; showSpotifyUris?: boolean; onArtworkChange?: (uri:string|null)=>void; onSongIdentityChange?: (id:string|null)=>void; onSpotifyTrackChange?: (trackId:string|null)=>void; canvasMeta?: { canvas_url?: string | null; canvas_id?: string | null; canvas_not_found?: boolean }; nowPlayingExternal?: NowPlayingResponse; }
 
 const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtworkChange, onSongIdentityChange, onSpotifyTrackChange, canvasMeta, nowPlayingExternal }) => {
   const [nowPlaying, setNowPlaying] = useState<NowPlayingResponse | null>(nowPlayingExternal || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [controlError, setControlError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [volume, setVolume] = useState<number | null>(null);
   const [volumeAnchor, setVolumeAnchor] = useState<HTMLElement | null>(null);
@@ -215,26 +216,32 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
 
   const callApi = useCallback(async (action: 'play' | 'pause' | 'next' | 'previous') => {
     try {
-      await fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}/player/${action}`).catch(()=>{});
-      // For track navigation, force an immediate nowplaying fetch bypassing ETag to get new artwork quickly
-      if (action === 'next' || action === 'previous') {
-        etagRef.current = null; // discard old etag so conditional request won't 304
-        try {
-          const res = await fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}/nowplaying?ts=${Date.now()}`);
-            if (res.ok) {
-              const data = await res.json();
-              setNowPlaying(data);
-              const et = res.headers.get('ETag'); if (et) etagRef.current = et;
-            }
-        } catch { /* ignore */ }
-        // Schedule a second refresh shortly after to catch any delayed backend updates (e.g., artwork caching)
-        setTimeout(() => refresh(), 1200);
-      }
-    } finally {
-      // For play/pause (and also next/previous fallback) still bump refresh key
-      refresh();
-    }
-  }, [zoneName]);
+      if (!zoneName) throw new Error('No zone');
+      // Per API docs use GET /zones/{id}/player/{action}
+      const endpoint = `${API_BASE}/zones/${encodeURIComponent(zoneName)}/player/${action}`;
+      console.debug('[NowPlaying] calling control endpoint (player action)', endpoint);
+      const res = await fetch(endpoint, { method: 'GET' });
+       console.debug('[NowPlaying] control response', res.status, res.statusText);
+       if (!res.ok) {
+         // throw a descriptive error so the catch block can set a transient control message
+         throw new Error(`API error: ${res.status} ${res.statusText}`);
+       }
+       // Immediately refresh nowPlaying state after successful control action
+       try { refresh(); } catch {/* ignore */}
+       // Schedule a follow-up refresh to catch eventual consistency on the server
+       try { setTimeout(() => { try { refresh(); } catch {/* ignore */} }, 900); } catch {/* ignore */}
+       return true;
+     } catch (e:any) {
+       // For control actions we avoid setting the global `error` state because
+       // that triggers the overlay to return an error UI and hide controls.
+       const msg = e?.message || 'Control action failed';
+       // Provide a transient control-specific message and log the full error.
+       console.warn('[NowPlaying] control API error', msg, e);
+       setControlError(msg.includes('401') ? 'Unauthorized (401) — check API access' : msg);
+       window.setTimeout(() => setControlError(null), 5000);
+       return false;
+     }
+   }, [zoneName, refresh]);
 
   const updateVolume = useCallback((newVol:number) => {
     setVolume(newVol);
@@ -300,7 +307,7 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
   if (!nowPlaying || !nowPlaying.CurrSong) return <Box mt={4}><Typography>No song playing</Typography></Box>;
 
   const song = nowPlaying.CurrSong as Song;
-  let spotifyData: { track?: string; artist?: string; album?: string; playlist?: string; canvas_url?: string | null; canvas_not_found?: boolean } | null = null;
+  let spotifyData: { track?: string; artist?: string; album?: string; playlist?: string; canvas_url?: string | null; canvas_not_found?: boolean; canvas_id?: string | null } | null = null;
   if (showSpotifyUris && song && Array.isArray((song as any).DeepLinks)) {
     const dl = (song as any).DeepLinks as Array<{ Kind?: string; Uri?: string }>;
     if (dl && dl.length) {
@@ -359,6 +366,7 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
           </Typography>
           <Typography variant="caption" sx={{ fontSize:'.55rem', minWidth:30, color:palette.text, textAlign:'right' }}>{formatTime(duration)}</Typography>
         </Stack>
+        <Box>
         <PlaybackControls
           isPlaying={isPlaying}
           volume={volume}
@@ -373,6 +381,10 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
           onVolumeChange={updateVolume}
           palette={palette}
         />
+        {controlError && (
+          <Typography variant="caption" color="warning.main" sx={{ mt: 0.6, display: 'block', textAlign: 'center' }}>{controlError}</Typography>
+        )}
+        </Box>
         {nextSong && nextSong.ArtworkURI && (
           <Box
             aria-label="next art thumb"
@@ -470,7 +482,8 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
           data={{
             ...spotifyData,
             canvas_url: (canvasMeta?.canvas_url ?? spotifyData.canvas_url) || undefined,
-            canvas_not_found: typeof canvasMeta?.canvas_not_found === 'boolean' ? canvasMeta.canvas_not_found : spotifyData.canvas_not_found
+            canvas_not_found: typeof canvasMeta?.canvas_not_found === 'boolean' ? canvasMeta.canvas_not_found : spotifyData.canvas_not_found,
+            canvas_id: (canvasMeta?.canvas_id ?? spotifyData.canvas_id) || undefined
           }}
         />
       )}

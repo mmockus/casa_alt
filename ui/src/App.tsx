@@ -10,7 +10,7 @@ import KaleidoscopeBackground from './components/KaleidoscopeBackground';
 // Types & utils
 import { themes, ThemeConfig } from './themeConfig';
 import { useNowPlaying } from './hooks/useNowPlaying';
-import { CANVAS_DEFAULT_VIDEO } from './config';
+import { CANVAS_DEFAULT_VIDEO, CANVAS_API } from './config';
 
 
 // API base now centralized in config.ts
@@ -112,7 +112,7 @@ export default function App() {
     }
     return null;
   }, [nowPlaying?.CurrSong]);
-  const [canvasMeta] = useState<{ canvas_url?: string | null; canvas_not_found?: boolean }>({});
+  const [canvasMeta, setCanvasMeta] = useState<{ canvas_url?: string | null; canvas_id?: string | null; canvas_not_found?: boolean }>({});
   const [defaultCanvasVideo, setDefaultCanvasVideo] = useState<string | undefined>(() => {
     try {
       const ls = JSON.parse(localStorage.getItem('localSettings') || '{}');
@@ -181,7 +181,48 @@ export default function App() {
     };
   }, [albumArt]);
 
-  // Removed canvas search API usage; Live theme just displays default video.
+  // When a new song loads (first time) and theme supports Canvas, query CANVAS_API for canvas metadata
+  useEffect(() => {
+    if (!theme.Canvas) {
+      // clear any previous canvasMeta when theme doesn't support canvas
+      if (canvasMeta && Object.keys(canvasMeta).length) setCanvasMeta({});
+      return;
+    }
+    if (!songIdentity || !spotifyTrackId) {
+      // nothing to lookup
+      return;
+    }
+    if (!CANVAS_API) {
+      // No external API configured
+      return;
+    }
+    let cancelled = false;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        // Call CANVAS_API with a query param 'track' (backend should accept this form)
+        const url = `${CANVAS_API}${CANVAS_API.includes('?') ? '&' : '?'}track=${encodeURIComponent(spotifyTrackId)}`;
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) {
+          // treat 404/204 as not found
+          if (!cancelled) setCanvasMeta({ canvas_not_found: true });
+          return;
+        }
+        const data = await res.json();
+        if (cancelled) return;
+        const canvas_url = (data && typeof data.canvas_url === 'string') ? data.canvas_url : (data && data.url && typeof data.url === 'string' ? data.url : null);
+        const canvas_id = (data && typeof data.canvas_id === 'string') ? data.canvas_id : (data && data.id && typeof data.id === 'string' ? data.id : undefined);
+        const canvas_not_found = !!data.canvas_not_found;
+        setCanvasMeta({ canvas_url: canvas_url || null, canvas_id: canvas_id || null, canvas_not_found });
+      } catch (e) {
+        if (!cancelled) {
+          // network error => mark as not found conservatively
+          setCanvasMeta({ canvas_not_found: true });
+        }
+      }
+    })();
+    return () => { cancelled = true; controller.abort(); };
+  }, [songIdentity, spotifyTrackId, theme.Canvas]);
 
   // Dynamically compute canvas video positioning relative to album art (frontmiddle layer)
   const [canvasLeftPx, setCanvasLeftPx] = useState<number | null>(null);
@@ -274,8 +315,8 @@ export default function App() {
     {albumArt && (
       <Box component="img" id="album-art-main" src={albumArt} alt="album" sx={{ position:'fixed', inset:0, width:'100vw', height:'100vh', objectFit:'contain', zIndex:2, opacity:0.95, pointerEvents:'none', transition:'opacity 1.2s ease' }} />
     )}
-  {theme.Canvas && defaultCanvasVideo && canvasLeftPx != null && canvasWidthPx != null && (
-      <CanvasVideo debug leftPx={canvasLeftPx} widthPx={canvasWidthPx} verticalCenter defaultSrc={defaultCanvasVideo} />
+  {theme.Canvas && (canvasMeta?.canvas_url || defaultCanvasVideo) && canvasLeftPx != null && canvasWidthPx != null && (
+      <CanvasVideo debug leftPx={canvasLeftPx} widthPx={canvasWidthPx} verticalCenter defaultSrc={canvasMeta?.canvas_url || defaultCanvasVideo} />
     )}
     {/* Front: NowPlaying overlay */}
   <Box sx={{ position:'fixed', inset:0, zIndex:3 }}>

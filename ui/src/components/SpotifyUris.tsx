@@ -8,6 +8,7 @@ export interface SpotifyUriData {
   playlist?: string;
   canvas_url?: string | null;
   canvas_not_found?: string | boolean; // boolean from API, string if diagnostic text provided
+  canvas_id?: string | null;
 }
 
 interface Props { data: SpotifyUriData; }
@@ -21,6 +22,7 @@ const SpotifyUris: React.FC<Props> = ({ data }) => {
     { label: 'Album', value: data.album },
     { label: 'Playlist', value: data.playlist },
     { label: 'Canvas URL', value: data.canvas_url || undefined },
+    { label: 'Canvas ID', value: data.canvas_id || undefined },
     { label: 'Canvas Missing', value: typeof data.canvas_not_found === 'boolean' ? (data.canvas_not_found ? 'true' : 'false') : data.canvas_not_found },
   ];
   const [copiedKey, setCopiedKey] = useState<string|null>(null);
