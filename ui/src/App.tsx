@@ -184,43 +184,67 @@ export default function App() {
   // When a new song loads (first time) and theme supports Canvas, query CANVAS_API for canvas metadata
   useEffect(() => {
     if (!theme.Canvas) {
-      // clear any previous canvasMeta when theme doesn't support canvas
       if (canvasMeta && Object.keys(canvasMeta).length) setCanvasMeta({});
       return;
     }
-    if (!songIdentity || !spotifyTrackId) {
-      // nothing to lookup
-      return;
-    }
-    if (!CANVAS_API) {
-      // No external API configured
-      return;
-    }
+    if (!songIdentity || !spotifyTrackId) return;
+    if (!CANVAS_API) return;
+
     let cancelled = false;
     const controller = new AbortController();
+
     (async () => {
       try {
-        // Call CANVAS_API with a query param 'track' (backend should accept this form)
         const url = `${CANVAS_API}${CANVAS_API.includes('?') ? '&' : '?'}track=${encodeURIComponent(spotifyTrackId)}`;
         const res = await fetch(url, { signal: controller.signal });
         if (!res.ok) {
-          // treat 404/204 as not found
           if (!cancelled) setCanvasMeta({ canvas_not_found: true });
           return;
         }
-        const data = await res.json();
-        if (cancelled) return;
-        const canvas_url = (data && typeof data.canvas_url === 'string') ? data.canvas_url : (data && data.url && typeof data.url === 'string' ? data.url : null);
-        const canvas_id = (data && typeof data.canvas_id === 'string') ? data.canvas_id : (data && data.id && typeof data.id === 'string' ? data.id : undefined);
-        const canvas_not_found = !!data.canvas_not_found;
-        setCanvasMeta({ canvas_url: canvas_url || null, canvas_id: canvas_id || null, canvas_not_found });
-      } catch (e) {
-        if (!cancelled) {
-          // network error => mark as not found conservatively
-          setCanvasMeta({ canvas_not_found: true });
+
+        const contentType = (res.headers.get('content-type') || '').toLowerCase();
+        let body: any = null;
+        if (contentType.includes('application/json')) {
+          body = await res.json();
+        } else {
+          const txt = await res.text();
+          // try parse JSON if possible
+          try { body = JSON.parse(txt); } catch { body = txt.trim(); }
         }
+        if (cancelled) return;
+
+        let canvas_url: string | null = null;
+        let canvas_id: string | null = null;
+        let canvas_not_found = false;
+
+        if (typeof body === 'string') {
+          const txt = body as string;
+          if (txt) {
+            canvas_url = txt;
+            // try to parse track query param
+            try {
+              const u = new URL(txt);
+              const t = u.searchParams.get('track'); if (t) canvas_id = t;
+            } catch {/* not a URL */}
+            if (!canvas_id) {
+              const m = txt.match(/([A-Za-z0-9]{22})/);
+              if (m) canvas_id = m[1];
+            }
+          } else {
+            canvas_not_found = true;
+          }
+        } else if (typeof body === 'object' && body !== null) {
+          canvas_url = body.canvas_url || body.url || body.canvasUrl || null;
+          canvas_id = body.canvas_id || body.id || body.canvasId || null;
+          canvas_not_found = !!(body.canvas_not_found || body.not_found || body.canvasNotFound);
+        }
+
+        setCanvasMeta({ canvas_url: canvas_url || null, canvas_id: canvas_id || null, canvas_not_found: !!canvas_not_found });
+      } catch (e) {
+        if (!cancelled) setCanvasMeta({ canvas_not_found: true });
       }
     })();
+
     return () => { cancelled = true; controller.abort(); };
   }, [songIdentity, spotifyTrackId, theme.Canvas]);
 

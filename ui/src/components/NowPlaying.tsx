@@ -227,9 +227,25 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
          throw new Error(`API error: ${res.status} ${res.statusText}`);
        }
        // Immediately refresh nowPlaying state after successful control action
-       try { refresh(); } catch {/* ignore */}
-       // Schedule a follow-up refresh to catch eventual consistency on the server
-       try { setTimeout(() => { try { refresh(); } catch {/* ignore */} }, 900); } catch {/* ignore */}
+       // Optimistically update local nowPlaying Status for play/pause so UI toggles immediately
+      try {
+        if (action === 'play' || action === 'pause') {
+          setNowPlaying(prev => {
+            if (!prev) return prev;
+            return { ...prev, Status: action === 'play' ? 2 : 1 } as NowPlayingResponse;
+          });
+        }
+      } catch {/* ignore */}
+      // Always refresh immediately after the control action
+      try { refresh(); } catch {/* ignore */}
+      // If the user navigated next/previous, schedule extra follow-up refreshes to capture new track metadata (album art)
+      if (action === 'next' || action === 'previous') {
+        try { setTimeout(() => { try { refresh(); } catch {/* ignore */} }, 300); } catch {/* ignore */}
+        try { setTimeout(() => { try { refresh(); } catch {/* ignore */} }, 1200); } catch {/* ignore */}
+      } else {
+        // regular follow-up for play/pause
+        try { setTimeout(() => { try { refresh(); } catch {/* ignore */} }, 900); } catch {/* ignore */}
+      }
        return true;
      } catch (e:any) {
        // For control actions we avoid setting the global `error` state because
