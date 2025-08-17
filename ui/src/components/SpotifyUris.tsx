@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { Box, Typography, Stack } from '@mui/material';
 
 export interface SpotifyUriData {
@@ -19,6 +19,30 @@ const SpotifyUris: React.FC<Props> = ({ data }) => {
     { label: 'Album', value: data.album },
     { label: 'Playlist', value: data.playlist },
   ];
+  const [copiedKey, setCopiedKey] = useState<string|null>(null);
+
+  const copyToClipboard = useCallback((value: string|undefined, key:string) => (e: React.MouseEvent) => {
+    if (!value) return;
+    e.preventDefault();
+    // Attempt async clipboard; fallback if unavailable
+    const doSet = () => { setCopiedKey(key); setTimeout(()=>setCopiedKey(p => p===key?null:p), 1500); };
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(value).then(doSet).catch(()=>{
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = value; ta.style.position='fixed'; ta.style.left='-9999px';
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); doSet();
+        } catch {/* ignore */}
+      });
+    } else {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = value; ta.style.position='fixed'; ta.style.left='-9999px';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); doSet();
+      } catch {/* ignore */}
+    }
+  }, []);
+
   return (
     <Box
       sx={{
@@ -36,19 +60,36 @@ const SpotifyUris: React.FC<Props> = ({ data }) => {
         boxShadow: '0 4px 22px -6px rgba(0,0,0,0.55)',
         color: '#fff',
         fontSize: '0.7rem',
-        pointerEvents: 'none',
+        // enable interaction for copy
+        userSelect: 'text',
       }}
     >
       <Typography variant="caption" sx={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '.12em', opacity: 0.65, display: 'block', mb: 0.6 }}>Spotify URIs</Typography>
       <Stack spacing={0.4}>
-        {entries.map(e => (
-          <Box key={e.label} sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 0.8, opacity: e.value ? 0.92 : 0.35 }}>
-            <Typography component="span" sx={{ minWidth: 56, fontSize: '0.62rem', fontWeight: 600, textAlign: 'right', color: '#f5f5f5' }}>{e.label}:</Typography>
-            <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.60rem', wordBreak: 'break-all', lineHeight: 1.3 }}>
-              {e.value || '—'}
-            </Typography>
-          </Box>
-        ))}
+        {entries.map(e => {
+          const active = copiedKey === e.label;
+          return (
+            <Box
+              key={e.label}
+              onContextMenu={copyToClipboard(e.value, e.label)}
+              title={e.value ? 'Right click to copy' : 'No value'}
+              sx={{
+                display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 0.8,
+                opacity: e.value ? 0.92 : 0.35,
+                cursor: e.value ? 'copy' : 'default',
+                border: active ? '1px solid rgba(255,255,255,0.5)' : '1px solid transparent',
+                borderRadius: 1,
+                px: active ? 0.4 : 0,
+                transition: 'border-color 0.25s'
+              }}
+            >
+              <Typography component="span" sx={{ minWidth: 56, fontSize: '0.62rem', fontWeight: 600, textAlign: 'right', color: '#f5f5f5' }}>{e.label}:</Typography>
+              <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.60rem', wordBreak: 'break-all', lineHeight: 1.3 }}>
+                {active && e.value ? '[copied]' : (e.value || '—')}
+              </Typography>
+            </Box>
+          );
+        })}
       </Stack>
     </Box>
   );
