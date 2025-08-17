@@ -34,8 +34,19 @@ const CanvasVideo: React.FC<CanvasVideoProps> = ({
     transform: 'translateX(-50%)',
     position: verticalCenter ? 'fixed' as const : 'absolute' as const
   };
+  // Compute height from width (9:16) and clamp to viewport height just in case
+  let derivedHeight: number | undefined;
+  if (widthPx != null) {
+    derivedHeight = widthPx * (16/9);
+    const vh = typeof window !== 'undefined' ? window.innerHeight : undefined;
+    if (vh && derivedHeight > vh * 0.95) {
+      derivedHeight = vh * 0.95;
+      widthPx = derivedHeight * (9/16);
+    }
+  }
   const widthStyles = widthPx != null ? {
     width: widthPx,
+    height: derivedHeight,
     maxWidth: 'none'
   } : {
     width: { xs: '26vw', sm: '18vw', md: 260 },

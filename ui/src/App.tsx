@@ -104,9 +104,16 @@ export default function App() {
         // Fallback assume square fills min dimension
         albumArtWidth = Math.min(vw, vh);
       }
-    const remaining = Math.max(0, vw - albumArtWidth);
-    const videoWidth = remaining * 0.4;
-    const leftEdge = ((vw + albumArtWidth) / 2) + (videoWidth / 8);
+      const remaining = Math.max(0, vw - albumArtWidth);
+      let videoWidth = remaining * 0.4;
+      // Derive height from width using 9:16 (vertical) aspect ratio
+      let videoHeight = videoWidth * (16/9);
+      const maxHeight = vh * 0.9; // allow a little breathing room
+      if (videoHeight > maxHeight) {
+        videoHeight = maxHeight;
+        videoWidth = videoHeight * (9/16);
+      }
+      const leftEdge = ((vw + albumArtWidth) / 2) + (videoWidth / 8);
       const centerX = leftEdge + videoWidth / 2;
       // Clamp to viewport bounds (optional safety)
       let adjustedCenterX = centerX;
