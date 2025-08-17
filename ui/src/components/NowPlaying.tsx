@@ -27,6 +27,8 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
   // Conditional request + error/backoff refs
   const etagRef = useRef<string | null>(null);
   const consecutiveErrorsRef = useRef(0);
+  // Track previous song identity to detect transitions for artwork refresh
+  const prevSongIdRef = useRef<string | null>(null);
 
   // Marquee scroll logic: only scroll if text overflows
   useEffect(() => {
@@ -115,14 +117,21 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
         if (etagRef.current) headers['If-None-Match'] = etagRef.current;
         const res = await fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}/nowplaying`, { signal: controller.signal, headers });
         if (res.status === 304) {
-          // Not modified, simply schedule next
           consecutiveErrorsRef.current = 0;
         } else if (res.ok) {
           const data = await res.json();
           if (!cancelled) {
+            // Detect song change
+            const newSong = data?.CurrSong;
+            const newId = newSong ? `${newSong.Title}|${newSong.Artists || newSong.Artist || ''}|${newSong.Album || ''}` : null;
+            const changed = newId && newId !== prevSongIdRef.current;
             setNowPlaying(data);
-            const etag = res.headers.get('ETag');
-            if (etag) etagRef.current = etag;
+            if (changed) {
+              prevSongIdRef.current = newId;
+              // Force artwork change callback (even if artwork URI same string but track meta changed) by re-invoking
+              if (newSong?.ArtworkURI) onArtworkChange?.(newSong.ArtworkURI);
+            }
+            const etag = res.headers.get('ETag'); if (etag) etagRef.current = etag;
           }
           consecutiveErrorsRef.current = 0;
         } else {
@@ -178,7 +187,12 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
 
   // Palette extraction (moved earlier to App as well, but keep local for overlay gradient colors)
   useEffect(() => {
-    const src = nowPlaying?.CurrSong?.ArtworkURI; if (!src) return;
+    // Maintain prevSongIdRef on initial load or refresh
+    const curr = nowPlaying?.CurrSong;
+    if (curr) {
+      prevSongIdRef.current = `${curr.Title}|${curr.Artists || curr.Artist || ''}|${curr.Album || ''}`;
+    }
+    const src = curr?.ArtworkURI; if (!src) return;
     const img = new Image(); img.crossOrigin='anonymous'; img.src = src; img.onload = () => {
       try {
         const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); if (!ctx) return;
@@ -192,8 +206,26 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
   }, [nowPlaying?.CurrSong?.ArtworkURI]);
 
   const callApi = useCallback(async (action: 'play' | 'pause' | 'next' | 'previous') => {
-    try { await fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}/player/${action}`); }
-    finally { refresh(); }
+    try {
+      await fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}/player/${action}`).catch(()=>{});
+      // For track navigation, force an immediate nowplaying fetch bypassing ETag to get new artwork quickly
+      if (action === 'next' || action === 'previous') {
+        etagRef.current = null; // discard old etag so conditional request won't 304
+        try {
+          const res = await fetch(`${API_BASE}/zones/${encodeURIComponent(zoneName)}/nowplaying?ts=${Date.now()}`);
+            if (res.ok) {
+              const data = await res.json();
+              setNowPlaying(data);
+              const et = res.headers.get('ETag'); if (et) etagRef.current = et;
+            }
+        } catch { /* ignore */ }
+        // Schedule a second refresh shortly after to catch any delayed backend updates (e.g., artwork caching)
+        setTimeout(() => refresh(), 1200);
+      }
+    } finally {
+      // For play/pause (and also next/previous fallback) still bump refresh key
+      refresh();
+    }
   }, [zoneName]);
 
   const updateVolume = useCallback((newVol:number) => {
