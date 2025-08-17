@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, ThemeProvider, CssBaseline } from '@mui/material';
 import { createTheme } from '@mui/material/styles';
 // Components
@@ -9,6 +9,8 @@ import CanvasVideo from './components/CanvasVideo';
 import KaleidoscopeBackground from './components/KaleidoscopeBackground';
 // Types & utils
 import { themes, ThemeConfig } from './themeConfig';
+import { useNowPlaying } from './hooks/useNowPlaying';
+import { CANVAS_DEFAULT_VIDEO } from './config';
 
 
 // API base now centralized in config.ts
@@ -23,11 +25,28 @@ import { themes, ThemeConfig } from './themeConfig';
 // (Pride theme removed)
 
 export default function App() {
-  const [selectedZone, setSelectedZone] = useState<string>('');
+  const [selectedZone, setSelectedZone] = useState<string>(() => {
+    try {
+      const raw = localStorage.getItem('localSettings');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.selectedZone) return parsed.selectedZone as string;
+      }
+    } catch {/* ignore */}
+    return '';
+  });
   const [theme, setTheme] = useState<ThemeConfig>(() => {
-    const storedTheme = localStorage.getItem('themeName');
-    const found = themes.find(t => t.name === storedTheme);
-    return found || themes[1]; // Default to Robust
+    try {
+      const raw = localStorage.getItem('localSettings');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.themeName) {
+          const found = themes.find(t => t.name === parsed.themeName);
+          if (found) return found;
+        }
+      }
+    } catch {/* ignore */}
+    return themes[1];
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showSpotifyUris, setShowSpotifyUris] = useState<boolean>(() => {
@@ -54,8 +73,17 @@ export default function App() {
     return () => { window.removeEventListener('storage', onStorage); clearInterval(interval); };
   }, []);
 
-  // Persist theme selection
-  useEffect(() => { localStorage.setItem('themeName', theme.name); }, [theme]);
+  // Persist theme selection inside localSettings only
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('localSettings');
+      const parsed = raw ? JSON.parse(raw) : {};
+      if (parsed.themeName !== theme.name) {
+        parsed.themeName = theme.name;
+        localStorage.setItem('localSettings', JSON.stringify(parsed));
+      }
+    } catch {/* ignore */}
+  }, [theme.name]);
 
   // For now both themes identical; scaffold for future differentiation
   const muiTheme = React.useMemo(() => createTheme({ palette: { mode: 'dark' } }), []);
@@ -63,6 +91,80 @@ export default function App() {
   // Album art & palette state (palette still computed here though NowPlaying keeps its own for now)
   const [albumArt, setAlbumArt] = useState<string | null>(null);
   const [palette, setPalette] = useState<{dominant:string;accent:string;text:string}>({dominant:'#444',accent:'#888',text:'#fff'});
+  const { nowPlaying } = useNowPlaying(selectedZone || undefined);
+  // Derive song identity & spotifyTrackId centrally
+  const songIdentity = useMemo(() => {
+    const s: any = nowPlaying?.CurrSong;
+    if (!s) return null;
+    const title = s.Title || s.title;
+    const artist = s.Artist || s.Artists || s.artist;
+    const album = s.Album || s.album;
+    if (!title || !artist) return null;
+    return `${title}|${artist}|${album||''}`;
+  }, [nowPlaying?.CurrSong]);
+  const spotifyTrackId = useMemo(() => {
+    const dl = (nowPlaying?.CurrSong as any)?.DeepLinks;
+    if (Array.isArray(dl)) {
+      for (const entry of dl) {
+        if (!entry?.URI) continue;
+        if (entry.URI.startsWith('spotify:track:')) return entry.URI.split(':')[2];
+      }
+    }
+    return null;
+  }, [nowPlaying?.CurrSong]);
+  const [canvasMeta] = useState<{ canvas_url?: string | null; canvas_not_found?: boolean }>({});
+  const [defaultCanvasVideo, setDefaultCanvasVideo] = useState<string | undefined>(() => {
+    try {
+      const ls = JSON.parse(localStorage.getItem('localSettings') || '{}');
+      if (ls.defaultCanvasVideo) return ls.defaultCanvasVideo;
+      if (CANVAS_DEFAULT_VIDEO) {
+        ls.defaultCanvasVideo = CANVAS_DEFAULT_VIDEO;
+        localStorage.setItem('localSettings', JSON.stringify(ls));
+        return CANVAS_DEFAULT_VIDEO;
+      }
+    } catch {/* ignore */}
+    return undefined;
+  });
+
+  // If env var changes across hot reload and local not set, persist it
+  useEffect(() => {
+    if (!defaultCanvasVideo && CANVAS_DEFAULT_VIDEO) {
+      try {
+        const ls = JSON.parse(localStorage.getItem('localSettings') || '{}');
+        if (!ls.defaultCanvasVideo) {
+          ls.defaultCanvasVideo = CANVAS_DEFAULT_VIDEO;
+          localStorage.setItem('localSettings', JSON.stringify(ls));
+          setDefaultCanvasVideo(CANVAS_DEFAULT_VIDEO);
+        }
+      } catch {/* ignore */}
+    }
+  }, [defaultCanvasVideo]);
+
+  // Guarantee the key exists in localSettings if an env default is provided but stored value is empty string/null.
+  useEffect(() => {
+    if (!CANVAS_DEFAULT_VIDEO) return; // nothing to seed
+    try {
+      const raw = localStorage.getItem('localSettings') || '{}';
+      const parsed = JSON.parse(raw);
+      if (!parsed.defaultCanvasVideo || typeof parsed.defaultCanvasVideo !== 'string' || !parsed.defaultCanvasVideo.trim()) {
+        parsed.defaultCanvasVideo = CANVAS_DEFAULT_VIDEO;
+        localStorage.setItem('localSettings', JSON.stringify(parsed));
+        if (defaultCanvasVideo !== CANVAS_DEFAULT_VIDEO) setDefaultCanvasVideo(CANVAS_DEFAULT_VIDEO);
+      }
+    } catch {/* ignore */}
+  }, [defaultCanvasVideo]);
+
+  // Persist selectedZone only in localSettings
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('localSettings');
+      const parsed = raw ? JSON.parse(raw) : {};
+      if (parsed.selectedZone !== selectedZone) {
+        parsed.selectedZone = selectedZone;
+        localStorage.setItem('localSettings', JSON.stringify(parsed));
+      }
+    } catch {/* ignore */}
+  }, [selectedZone]);
 
   // Palette extraction moved here so backgrounds & controls share
   useEffect(() => {
@@ -79,12 +181,14 @@ export default function App() {
     };
   }, [albumArt]);
 
+  // Removed canvas search API usage; Live theme just displays default video.
+
   // Dynamically compute canvas video positioning relative to album art (frontmiddle layer)
   const [canvasLeftPx, setCanvasLeftPx] = useState<number | null>(null);
   const [canvasWidthPx, setCanvasWidthPx] = useState<number | null>(null);
   useEffect(() => {
     if (!theme.Canvas) return;
-    const compute = () => {
+  const compute = () => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const img = document.getElementById('album-art-main') as HTMLImageElement | null;
@@ -106,6 +210,12 @@ export default function App() {
       }
       const remaining = Math.max(0, vw - albumArtWidth);
       let videoWidth = remaining * 0.4;
+      // Fallback when no horizontal space (square/portrait viewport) so remaining=0
+      if (!videoWidth || videoWidth < 40) {
+        // Use a fraction of the shorter viewport dimension
+        videoWidth = Math.min(vw, vh) * 0.28; // ~28% for visual balance
+        videoWidth = Math.max(160, Math.min(videoWidth, 360)); // clamp practical bounds
+      }
       // Derive height from width using 9:16 (vertical) aspect ratio
       let videoHeight = videoWidth * (16/9);
       const maxHeight = vh * 0.9; // allow a little breathing room
@@ -113,12 +223,16 @@ export default function App() {
         videoHeight = maxHeight;
         videoWidth = videoHeight * (9/16);
       }
-  // New positioning:
-  // WidthNotAlbum = vw - albumArtWidth
-  // LeftEdge = (WidthNotAlbum/2) + albumArtWidth + ((WidthNotAlbum/2 - videoWidth)/2)
-  const widthNotAlbum = Math.max(0, vw - albumArtWidth);
-  const leftEdge = (widthNotAlbum / 2) + albumArtWidth + ((widthNotAlbum / 2 - videoWidth) / 2);
-  const centerX = leftEdge + (videoWidth / 2);
+      // Positioning: if there's horizontal remainder, place video in that right-side band; else overlay towards right side.
+      const widthNotAlbum = Math.max(0, vw - albumArtWidth);
+      let centerX: number;
+      if (widthNotAlbum > 4) {
+        const leftEdge = (widthNotAlbum / 2) + albumArtWidth + ((widthNotAlbum / 2 - videoWidth) / 2);
+        centerX = leftEdge + (videoWidth / 2);
+      } else {
+        // Overlay scenario: anchor near 78% width for aesthetic balance
+        centerX = vw * 0.78;
+      }
       // Clamp to viewport bounds (optional safety)
       let adjustedCenterX = centerX;
       if (adjustedCenterX + videoWidth / 2 > vw) adjustedCenterX = vw - videoWidth / 2 - 8;
@@ -139,7 +253,7 @@ export default function App() {
   <ThemeProvider theme={muiTheme}>
     <CssBaseline />
     {/* Front layer: Room selector (top) */}
-    <Box sx={{ position: 'fixed', top: 20, left: 0, width: '100%', zIndex: 500, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+  <Box sx={{ position: 'fixed', top: 20, left: 0, width: '100%', zIndex: 5, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
       <Box sx={{ pointerEvents: 'auto', borderRadius: 24, boxShadow: 4, bgcolor: 'background.paper', height: 24, minWidth: 320, maxWidth: 420, mx: 'auto', display: 'flex', alignItems: 'center', py: 0, px: 2.5 }}>
     <RoomSelector compact selectedZone={selectedZone} setSelectedZone={setSelectedZone} theme={theme} setTheme={setTheme} onOpenSettings={() => setSettingsOpen(true)} />
       </Box>
@@ -148,24 +262,24 @@ export default function App() {
     <Box sx={{ position:'fixed', inset:0, overflow:'hidden', zIndex:0, background:'#000' }} />
     {/* BackMiddle: diffused album art */}
     {theme.Diffused_Background && albumArt && !theme.Kaleidoscope_Background && (
-      <Box component="img" src={albumArt} alt="diffused" sx={{ position:'fixed', inset:0, width:'100vw', height:'100vh', objectFit:'cover', filter:'blur(32px) brightness(0.7) saturate(1.2)', zIndex:5, transition:'opacity 1.2s ease' }} />
+      <Box component="img" src={albumArt} alt="diffused" sx={{ position:'fixed', inset:0, width:'100vw', height:'100vh', objectFit:'cover', filter:'blur(32px) brightness(0.7) saturate(1.2)', zIndex:1, transition:'opacity 1.2s ease' }} />
     )}
     {/* Middle: kaleidoscope background */}
     {theme.Kaleidoscope_Background && (
-      <Box sx={{ position:'fixed', inset:0, zIndex:10 }}>
+      <Box sx={{ position:'fixed', inset:0, zIndex:1 }}>
         <KaleidoscopeBackground />
       </Box>
     )}
     {/* FrontMiddle: album art + video (video positioned via leftPx) */}
     {albumArt && (
-      <Box component="img" id="album-art-main" src={albumArt} alt="album" sx={{ position:'fixed', inset:0, width:'100vw', height:'100vh', objectFit:'contain', zIndex:20, opacity:0.95, pointerEvents:'none', transition:'opacity 1.2s ease' }} />
+      <Box component="img" id="album-art-main" src={albumArt} alt="album" sx={{ position:'fixed', inset:0, width:'100vw', height:'100vh', objectFit:'contain', zIndex:2, opacity:0.95, pointerEvents:'none', transition:'opacity 1.2s ease' }} />
     )}
-    {theme.Canvas && canvasLeftPx != null && canvasWidthPx != null && (
-      <CanvasVideo leftPx={canvasLeftPx} widthPx={canvasWidthPx} verticalCenter />
+  {theme.Canvas && defaultCanvasVideo && canvasLeftPx != null && canvasWidthPx != null && (
+      <CanvasVideo debug leftPx={canvasLeftPx} widthPx={canvasWidthPx} verticalCenter defaultSrc={defaultCanvasVideo} />
     )}
     {/* Front: NowPlaying overlay */}
-    <Box sx={{ position:'fixed', inset:0, zIndex:400 }}>
-      {selectedZone && <NowPlaying zoneName={selectedZone} theme={theme} showSpotifyUris={showSpotifyUris} onArtworkChange={setAlbumArt} />}
+  <Box sx={{ position:'fixed', inset:0, zIndex:3 }}>
+  {selectedZone && <NowPlaying zoneName={selectedZone} theme={theme} showSpotifyUris={showSpotifyUris} canvasMeta={canvasMeta} nowPlayingExternal={nowPlaying || undefined} onArtworkChange={(uri)=>setAlbumArt(uri)} />}
       {!selectedZone && (
         <Box sx={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%, -50%)', textAlign:'center', color:'#888', fontSize:{xs:'0.75rem', sm:'0.9rem'}, letterSpacing:'.05em', opacity:0.8 }}>
           Select a room from the menu above to begin.

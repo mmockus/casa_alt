@@ -1,28 +1,31 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Box } from '@mui/material';
 
 interface CanvasVideoProps {
-  src?: string;
-  // Legacy percentage-based positioning
+  src?: string; // explicit override
   topPct?: string;
   anchorLeftPct?: string;
-  // New pixel-based positioning & sizing
-  leftPx?: number;        // center x position in pixels
-  widthPx?: number;       // explicit width in pixels
-  verticalCenter?: boolean; // if true centers vertically
+  leftPx?: number; // center x position
+  widthPx?: number; // explicit width
+  verticalCenter?: boolean;
+  debug?: boolean;
+  defaultSrc?: string; // fallback provided from env/localSettings
 }
 
-// Standalone looping canvas-style video (Spotify Canvas mimic)
-const DEFAULT_SRC = 'https://canvaz.scdn.co/upload/artist/4q3ewBCX7sLwd24euuV69X/video/f7338b30e2da48349b45b80430c29076.cnvs.mp4#t=0.001';
-
+// Simplified CanvasVideo: always uses provided defaultSrc (or src) and no longer queries any Canvas API.
 const CanvasVideo: React.FC<CanvasVideoProps> = ({
-  src = DEFAULT_SRC,
+  src,
   topPct = '12%',
   anchorLeftPct = '75%',
   leftPx,
   widthPx,
-  verticalCenter
+  verticalCenter,
+  debug = false,
+  defaultSrc
 }) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const effectiveSrc = src || defaultSrc || '';
+  useEffect(() => { const v = videoRef.current; if (!v) return; v.play().catch(()=>{}); }, [effectiveSrc]);
   const positionStyles = leftPx != null ? {
     top: verticalCenter ? '50%' : topPct,
     left: leftPx,
@@ -53,29 +56,13 @@ const CanvasVideo: React.FC<CanvasVideoProps> = ({
     maxWidth: 300
   };
   return (
-    <Box
-      sx={{
-        ...positionStyles,
-        ...widthStyles,
-        aspectRatio: '9/16',
-  zIndex: 5, // keep well below NowPlaying overlays (>=50) and root (100)
-  pointerEvents: 'none',
-        borderRadius: 2,
-        overflow: 'hidden',
-        boxShadow: '0 8px 30px -6px rgba(0,0,0,0.6)',
-        border: '1px solid rgba(255,255,255,0.18)'
-      }}
-    >
-      <Box
-        component="video"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-        src={src}
-        sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-      />
+    <Box sx={{ ...positionStyles, ...widthStyles, aspectRatio:'9/16', zIndex:2, pointerEvents:'none', borderRadius:2, overflow:'hidden', boxShadow:'0 8px 30px -6px rgba(0,0,0,0.6)', border:'1px solid rgba(255,255,255,0.18)', position: positionStyles.position }}>
+      <Box component="video" ref={videoRef} key={effectiveSrc} autoPlay muted loop playsInline preload="auto" src={effectiveSrc} sx={{ width:'100%', height:'100%', objectFit:'cover', display:'block', transition:'opacity .4s ease' }} />
+      {debug && (
+        <Box sx={{ position:'absolute', bottom:2, left:2, right:2, fontFamily:'monospace', fontSize:10, lineHeight:1.2, bgcolor:'rgba(0,0,0,0.55)', color:'#8f8', p:0.6, borderRadius:1, pointerEvents:'none', maxHeight:'50%', overflow:'auto' }}>
+          <div>src: {effectiveSrc ? effectiveSrc.slice(0,60) : '(none)'} </div>
+        </Box>
+      )}
     </Box>
   );
 };

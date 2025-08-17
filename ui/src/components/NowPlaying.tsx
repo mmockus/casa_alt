@@ -9,10 +9,10 @@ import { ThemeConfig } from '../themeConfig';
 
 import SpotifyUris from './SpotifyUris';
 
-interface Props { zoneName: string; theme: ThemeConfig; showSpotifyUris?: boolean; onArtworkChange?: (uri:string|null)=>void; }
+interface Props { zoneName: string; theme: ThemeConfig; showSpotifyUris?: boolean; onArtworkChange?: (uri:string|null)=>void; onSongIdentityChange?: (id:string|null)=>void; onSpotifyTrackChange?: (trackId:string|null)=>void; canvasMeta?: { canvas_url?: string | null; canvas_not_found?: boolean }; nowPlayingExternal?: NowPlayingResponse; }
 
-const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtworkChange }) => {
-  const [nowPlaying, setNowPlaying] = useState<NowPlayingResponse | null>(null);
+const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtworkChange, onSongIdentityChange, onSpotifyTrackChange, canvasMeta, nowPlayingExternal }) => {
+  const [nowPlaying, setNowPlaying] = useState<NowPlayingResponse | null>(nowPlayingExternal || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -48,8 +48,12 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
 
   const refresh = () => setRefreshKey(k => k + 1);
 
-  // Initial fetch (single) when zone changes or forced refresh
+  // If external nowPlaying provided, mirror it and skip internal fetching
+  useEffect(() => { if (nowPlayingExternal) setNowPlaying(nowPlayingExternal); }, [nowPlayingExternal]);
+
+  // Initial fetch only if no external source
   useEffect(() => {
+    if (nowPlayingExternal) return; // external data governs
     if (!zoneName) return;
     setLoading(true); setError(null); setNowPlaying(null); setVolume(null);
     const controller = new AbortController();
@@ -61,7 +65,7 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
         const data = await res.json();
         if (!cancelled) setNowPlaying(data);
         // Store ETag if provided
-        const etag = res.headers.get('ETag');
+  const etag = (res as any)?.headers?.get ? res.headers.get('ETag') : null;
         if (etag) etagRef.current = etag;
         consecutiveErrorsRef.current = 0;
       } catch (e:any) {
@@ -80,7 +84,8 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
   // - Error exponential backoff
   // - Conditional requests using ETag (if server supports)
   useEffect(() => {
-    if (!zoneName || !nowPlaying) return; // need initial data
+  if (nowPlayingExternal) return; // polling handled upstream
+  if (!zoneName || !nowPlaying) return; // need initial data
     let cancelled = false;
     let timeout: number | null = null;
 
@@ -130,8 +135,9 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
               prevSongIdRef.current = newId;
               // Force artwork change callback (even if artwork URI same string but track meta changed) by re-invoking
               if (newSong?.ArtworkURI) onArtworkChange?.(newSong.ArtworkURI);
+              onSongIdentityChange?.(newId);
             }
-            const etag = res.headers.get('ETag'); if (etag) etagRef.current = etag;
+            const etag = (res as any)?.headers?.get ? res.headers.get('ETag') : null; if (etag) etagRef.current = etag;
           }
           consecutiveErrorsRef.current = 0;
         } else {
@@ -190,7 +196,9 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
     // Maintain prevSongIdRef on initial load or refresh
     const curr = nowPlaying?.CurrSong;
     if (curr) {
-      prevSongIdRef.current = `${curr.Title}|${curr.Artists || curr.Artist || ''}|${curr.Album || ''}`;
+      const id = `${curr.Title}|${curr.Artists || curr.Artist || ''}|${curr.Album || ''}`;
+      prevSongIdRef.current = id;
+      onSongIdentityChange?.(id);
     }
     const src = curr?.ArtworkURI; if (!src) return;
     const img = new Image(); img.crossOrigin='anonymous'; img.src = src; img.onload = () => {
@@ -269,14 +277,30 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
     if (art) onArtworkChange?.(art);
   }, [nowPlaying?.CurrSong?.ArtworkURI, onArtworkChange]);
 
+  // Precompute spotify track id (must happen before any early return to preserve hook order)
+  const spotifyTrackId = React.useMemo(() => {
+    const songLocal = nowPlaying?.CurrSong as Song | undefined;
+    if (!songLocal || !Array.isArray((songLocal as any).DeepLinks)) return null;
+    const dl = (songLocal as any).DeepLinks as Array<{ Kind?: string; Uri?: string }>;
+    for (const d of dl) {
+      if (!d || !d.Uri || !d.Kind) continue;
+      if (d.Kind.toLowerCase() === 'track' && d.Uri.startsWith('spotify:')) {
+        const parts = d.Uri.split(':');
+        if (parts.length === 3 && parts[1] === 'track') return parts[2];
+      }
+    }
+    return null;
+  }, [nowPlaying?.CurrSong]);
+
+  useEffect(() => { onSpotifyTrackChange?.(spotifyTrackId); }, [spotifyTrackId, onSpotifyTrackChange]);
+
   if (!zoneName) return null;
   if (loading) return <Box mt={4}><CircularProgress/></Box>;
   if (error) return <Box mt={4}><Typography color="error">{error}</Typography></Box>;
   if (!nowPlaying || !nowPlaying.CurrSong) return <Box mt={4}><Typography>No song playing</Typography></Box>;
 
   const song = nowPlaying.CurrSong as Song;
-  // Extract Spotify URIs if requested
-  let spotifyData: { track?: string; artist?: string; album?: string; playlist?: string } | null = null;
+  let spotifyData: { track?: string; artist?: string; album?: string; playlist?: string; canvas_url?: string | null; canvas_not_found?: boolean } | null = null;
   if (showSpotifyUris && song && Array.isArray((song as any).DeepLinks)) {
     const dl = (song as any).DeepLinks as Array<{ Kind?: string; Uri?: string }>;
     if (dl && dl.length) {
@@ -441,7 +465,15 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
           </Box>
         </Popover>
       </Box>
-      {showSpotifyUris && spotifyData && <SpotifyUris data={spotifyData} />}
+      {showSpotifyUris && spotifyData && (
+        <SpotifyUris
+          data={{
+            ...spotifyData,
+            canvas_url: (canvasMeta?.canvas_url ?? spotifyData.canvas_url) || undefined,
+            canvas_not_found: typeof canvasMeta?.canvas_not_found === 'boolean' ? canvasMeta.canvas_not_found : spotifyData.canvas_not_found
+          }}
+        />
+      )}
       <style>{`@keyframes marquee {0%{transform:translateX(100%);}100%{transform:translateX(-100%);}}`}</style>
     </React.Fragment>
   );

@@ -6,6 +6,8 @@ export interface SpotifyUriData {
   artist?: string;
   album?: string;
   playlist?: string;
+  canvas_url?: string | null;
+  canvas_not_found?: string | boolean; // boolean from API, string if diagnostic text provided
 }
 
 interface Props { data: SpotifyUriData; }
@@ -13,31 +15,34 @@ interface Props { data: SpotifyUriData; }
 // Automatically chooses contrasting text color based on backdrop-filter area using a simple luminance heuristic on provided fallback colors (optional future enhancement)
 const SpotifyUris: React.FC<Props> = ({ data }) => {
   // Order & labels
-  const entries: Array<{ label: string; value?: string }> = [
+  const entries: Array<{ label: string; value?: string | boolean }> = [
     { label: 'Track', value: data.track },
     { label: 'Artist', value: data.artist },
     { label: 'Album', value: data.album },
     { label: 'Playlist', value: data.playlist },
+    { label: 'Canvas URL', value: data.canvas_url || undefined },
+    { label: 'Canvas Missing', value: typeof data.canvas_not_found === 'boolean' ? (data.canvas_not_found ? 'true' : 'false') : data.canvas_not_found },
   ];
   const [copiedKey, setCopiedKey] = useState<string|null>(null);
 
-  const copyToClipboard = useCallback((value: string|undefined, key:string) => (e: React.MouseEvent) => {
+  const copyToClipboard = useCallback((value: string | boolean | undefined, key:string) => (e: React.MouseEvent) => {
     if (!value) return;
     e.preventDefault();
+    const str = typeof value === 'string' ? value : String(value);
     // Attempt async clipboard; fallback if unavailable
     const doSet = () => { setCopiedKey(key); setTimeout(()=>setCopiedKey(p => p===key?null:p), 1500); };
     if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(value).then(doSet).catch(()=>{
+      navigator.clipboard.writeText(str).then(doSet).catch(()=>{
         try {
           const ta = document.createElement('textarea');
-          ta.value = value; ta.style.position='fixed'; ta.style.left='-9999px';
+          ta.value = str; ta.style.position='fixed'; ta.style.left='-9999px';
           document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); doSet();
         } catch {/* ignore */}
       });
     } else {
       try {
         const ta = document.createElement('textarea');
-        ta.value = value; ta.style.position='fixed'; ta.style.left='-9999px';
+        ta.value = str; ta.style.position='fixed'; ta.style.left='-9999px';
         document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); doSet();
       } catch {/* ignore */}
     }
@@ -83,7 +88,7 @@ const SpotifyUris: React.FC<Props> = ({ data }) => {
                 transition: 'border-color 0.25s'
               }}
             >
-              <Typography component="span" sx={{ minWidth: 56, fontSize: '0.62rem', fontWeight: 600, textAlign: 'right', color: '#f5f5f5' }}>{e.label}:</Typography>
+              <Typography component="span" sx={{ minWidth: 94, fontSize: '0.62rem', fontWeight: 600, textAlign: 'right', color: '#f5f5f5' }}>{e.label}:</Typography>
               <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.60rem', wordBreak: 'break-all', lineHeight: 1.3 }}>
                 {active && e.value ? '[copied]' : (e.value || '—')}
               </Typography>

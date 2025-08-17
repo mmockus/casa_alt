@@ -45,3 +45,10 @@ if (portFromBase && envPort && portFromBase !== envPort) {
 }
 
 export const API_BASE = `${hostProtocol}://${hostName}${finalPort ? ':'+finalPort : ''}/api/v1`;
+
+// Canvas API endpoint (external service providing canvas video given a Spotify track ID)
+// Must be exposed at build time in CRA, so we prefer REACT_APP_CANVAS_API but also check unprefixed for dev convenience.
+export const CANVAS_API = (process.env.REACT_APP_CANVAS_API || (process.env as any).CANVAS_API || '').replace(/"/g,'');
+
+// Default Canvas fallback video (previously hardcoded). If provided, we persist to localSettings for future sessions.
+export const CANVAS_DEFAULT_VIDEO = (process.env.REACT_APP_CANVAS_DEFAULT_VIDEO || (process.env as any).CANVAS_DEFAULT_VIDEO || '').replace(/"/g,'');

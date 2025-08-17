@@ -28,15 +28,17 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
   const themeOpen = Boolean(themeAnchor);
   // settings handled by modal in parent
 
-  // On first mount, restore selectedZone and theme from localStorage only if not already set
+  // On mount, restore from consolidated localSettings (App already does this on its side, this is fallback)
   useEffect(() => {
-    // On initial mount, set selectedZone and theme from localStorage if present
-    const storedZone = localStorage.getItem('selectedZone');
-    if (storedZone) setSelectedZone(storedZone);
-    const storedTheme = localStorage.getItem('themeName');
-    const found = themes.find(t => t.name === storedTheme);
-    if (found) setTheme(found);
-    // Only run once
+    try {
+      const raw = localStorage.getItem('localSettings');
+      if (!raw) return; const parsed = JSON.parse(raw);
+      if (!selectedZone && parsed.selectedZone) setSelectedZone(parsed.selectedZone);
+      if (parsed.themeName) {
+        const found = themes.find(t => t.name === parsed.themeName);
+        if (found && theme.name !== found.name) setTheme(found);
+      }
+    } catch {/* ignore */}
     // eslint-disable-next-line
   }, []);
 
@@ -64,8 +66,8 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
         const list = Array.isArray(data) ? data : [];
         setZones(list);
         if (!selectedZone && list.length > 0) {
-          // Auto-select first zone to avoid blank screen; user can change.
-          setSelectedZone(list[0].Name);
+          const persisted = (()=>{ try { return JSON.parse(localStorage.getItem('localSettings')||'{}').selectedZone || ''; } catch { return ''; }})();
+          if (!persisted) setSelectedZone(list[0].Name);
         }
       } catch (e: any) {
         setError(e.message || 'Unknown error');
