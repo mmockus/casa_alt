@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Box, CircularProgress, Typography, Stack, FormControl, Select, MenuItem, IconButton, Popover, Divider, List, ListItemButton, Checkbox, ListItemText } from '@mui/material';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
-import MenuIcon from '@mui/icons-material/Menu';
+import PaletteIcon from '@mui/icons-material/Palette';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Zone } from '../types';
 import { API_BASE } from '../config';
 
@@ -13,9 +14,10 @@ interface Props {
   theme: ThemeConfig;
   setTheme: (t: ThemeConfig) => void;
   compact?: boolean;
+  onOpenSettings?: () => void;
 }
 
-export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, theme, setTheme, compact }) => {
+export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, theme, setTheme, compact, onOpenSettings }) => {
   const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +26,7 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
   const [groupLoading, setGroupLoading] = useState(false);
   const [themeAnchor, setThemeAnchor] = useState<HTMLElement | null>(null);
   const themeOpen = Boolean(themeAnchor);
+  // settings handled by modal in parent
 
   // On first mount, restore selectedZone and theme from localStorage only if not already set
   useEffect(() => {
@@ -58,7 +61,12 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
         const res = await fetch(`${API_BASE}/zones`);
         if (!res.ok) throw new Error(`API error: ${res.status}`);
         const data = await res.json();
-        setZones(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setZones(list);
+        if (!selectedZone && list.length > 0) {
+          // Auto-select first zone to avoid blank screen; user can change.
+          setSelectedZone(list[0].Name);
+        }
       } catch (e: any) {
         setError(e.message || 'Unknown error');
       } finally { setLoading(false); }
@@ -95,7 +103,12 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
                 setGroupAnchor(e.currentTarget); setGroupLoading(true);
                 try { const res = await fetch(`${API_BASE}/zones`); if (res.ok) { const data = await res.json(); if (Array.isArray(data)) setZones(data); } } catch { /* ignore */ } finally { setGroupLoading(false); }
               }} sx={{ p: mini ? 0.4 : 1 }}><GroupWorkIcon fontSize={mini ? 'small' : 'medium'} /></IconButton>
-              <IconButton size={mini ? 'small' : 'medium'} aria-label="themes" onClick={e => setThemeAnchor(e.currentTarget)} sx={{ p: mini ? 0.4 : 1 }}><MenuIcon fontSize={mini ? 'small' : 'medium'} /></IconButton>
+              <IconButton size={mini ? 'small' : 'medium'} aria-label="select theme" onClick={e => setThemeAnchor(e.currentTarget)} sx={{ p: mini ? 0.4 : 1 }}>
+                <PaletteIcon fontSize={mini ? 'small' : 'medium'} />
+              </IconButton>
+              <IconButton size={mini ? 'small' : 'medium'} aria-label="settings" onClick={() => onOpenSettings && onOpenSettings()} sx={{ p: mini ? 0.4 : 1 }}>
+                <SettingsOutlinedIcon fontSize={mini ? 'small' : 'medium'} />
+              </IconButton>
             </>
           )}
           <Popover open={groupOpen} anchorEl={groupAnchor} onClose={() => setGroupAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
@@ -140,6 +153,7 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
               <Typography variant="caption" color="text.secondary" sx={{ mt:1, mb:1, display:'block' }}>Theme settings are now config-driven.</Typography>
             </Box>
           </Popover>
+          {/* settings popover removed; now a modal */}
         </Stack>
       )}
     </Box>
