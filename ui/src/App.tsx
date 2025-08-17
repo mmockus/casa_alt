@@ -113,8 +113,12 @@ export default function App() {
         videoHeight = maxHeight;
         videoWidth = videoHeight * (9/16);
       }
-      const leftEdge = ((vw + albumArtWidth) / 2) + (videoWidth / 8);
-      const centerX = leftEdge + videoWidth / 2;
+  // New positioning:
+  // WidthNotAlbum = vw - albumArtWidth
+  // LeftEdge = (WidthNotAlbum/2) + albumArtWidth + ((WidthNotAlbum/2 - videoWidth)/2)
+  const widthNotAlbum = Math.max(0, vw - albumArtWidth);
+  const leftEdge = (widthNotAlbum / 2) + albumArtWidth + ((widthNotAlbum / 2 - videoWidth) / 2);
+  const centerX = leftEdge + (videoWidth / 2);
       // Clamp to viewport bounds (optional safety)
       let adjustedCenterX = centerX;
       if (adjustedCenterX + videoWidth / 2 > vw) adjustedCenterX = vw - videoWidth / 2 - 8;
