@@ -199,3 +199,114 @@ Instructions to help copilot build this out are below
 look at this app as a baseline for the UI, we can make this better
 
 http://<CASATUNES_HOST>/casatunesx/#/room-detail-view
+
+# Control behavior
+
+## App Load
+
+- when the app loads ONLY show
+  - Background color
+  - RoomSelector
+  - Do not call or show any of the other controls
+- Disable
+  - CanvasVideo
+  - KaleidoscopeBackground
+  - NowPlaying
+  - PlaybackControls
+  - SpotifyUris
+
+## Room Selector
+
+### Power Button
+
+- Display
+  - Room not selected, disabled and grey
+  - Room ON - green
+  - Room Off - red
+- Action
+  - If ON Click 
+    - call zones/{ZoneName}?Power=off
+    - Update to RED
+  - If OFF Click 
+    - call zones/{ZoneName}?Power=on
+    - Update to GREEN
+
+### Room List Dropdown
+- call /zones
+- list the zones
+- add to the list "Select room" as first item
+- Select current room from localSetting is available
+- Hide/remove "select room" if a room is selected
+- Do not list any room with attribute "Hidden": true
+- Display a small circle before the room name
+  - Circle RED if power is OFF
+  - Circle Green if power is ON
+
+### Room Group
+- Hide if select room is off
+
+### Theme Selector
+- Hide if select room is off
+
+### Setting Gear
+- Always shown and active
+- When Clicked open the Setting Modal
+
+## Main App (app.tsx)
+- If room select is ON call zones/{ZoneName}/nowplaying
+- If room selector Zone is OFF disable and hide controls
+  - CanvasVideo
+  - KaleidoscopeBackground
+  - NowPlaying
+  - PlaybackControls
+  - SpotifyUris
+- If room selector changes room selection reevaluate ##Main App rules
+
+## PlaybackControls
+
+component: PlaybackControls.tsx
+
+Purpose: Pure UI component for playback/volume buttons. Stateless — it receives props and invokes callbacks.
+
+### ThemeConfig
+
+Based on the currently active ThemeConfig
+- Diffused_Background
+  - true: display the background
+  - false: hide and disable this control
+- Kaleidoscope_Background
+  - true: display the background
+  - false: hide and disable this control
+- CanvasVideo
+  - flag: Canvas: true/false
+  - true: display the background
+  - false: hide and disable this control
+
+## NowPlaying
+
+component: NowPlaying.tsx
+
+Purpose: Orchestrator for now-playing state. Owns fetching, polling, control API calls, local progress simulation, palette extraction, and error handling. It renders PlaybackControls.
+
+- maintains state and data based on the api below
+  - GET ${API_BASE}/zones/{zone}/nowplaying
+    - Purpose: initial fetch and adaptive polling of now-playing state. Uses If-None-Match (ETag) when available and handles 304 responses.
+  - GET ${API_BASE}/zones/{zone}/player/{action}
+    - Purpose: player controls. {action} ∈ {play, pause, next, previous}. Called from callApi().
+  - GET ${API_BASE}/zones/{zone}?Volume={value}
+    -Purpose: set zone volume (debounced in updateVolume).
+  - GET ${API_BASE}/zones/{zone}
+    - Purpose: fetch zone metadata (including current Volume) when opening the volume popover.
+- if the Theme has Canvas=True
+  - Call ${CANVAS_API}?track=${SpotifyTrackId}
+  - TrackID will be a variable similar to "7l9IqDtVWJurTvkQHq1BGh"
+  - Call this API any time the track changes
+  - ensure the resultant information is available to both components
+   - SpotifyUris
+   - CanvasVideo
+
+## Canvas Video
+
+- Only show the video panel if enable for the theme
+- If nowPlaying component returns a valid Canvas URL & CanvasMissing is false, then use the canvasURL as the video.
+- if there is not a valid CanvasURL or CanvasNotFound is True, display the default video, but have it diffused and layer on top of it, "No Video"

@@ -1,0 +1,90 @@
+name: Release Follow-Up
+
+# This workflow runs AFTER a GitHub Release is published (release event fires
+# only when a Release object is created/published, not just a tag push).
+# Use this when you want post-release tasks (notify, SBOM, scan, provenance, etc.)
+
+on:
+  release:
+    types: [published]
+  # Optional: also react to any pushed tag matching v*
+  # push:
+  #   tags:
+  #     - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-followup-${{ github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOCKER_IMAGE: mmockus/mycasa
+
+jobs:
+  post_release:
+    name: Post-Release Tasks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for provenance)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Derive Version
+        id: meta
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Derived VERSION=$VERSION from TAG=$TAG"
+
+      - name: Build & Push Release Image
+        if: ${{ !cancelled() }}
+        env:
+          REACT_APP_API_BASE: http://casaserver.local
+          REACT_APP_API_PORT: 8735
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DOCKERHUB_USERNAME:-}" ] || [ -z "${DOCKERHUB_TOKEN:-}" ]; then
+            echo "Docker Hub secrets missing; skipping image rebuild.";
+            exit 0;
+          fi
+          echo "Logging in to Docker Hub..."
+          echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+          VERSION='${{ steps.meta.outputs.version }}'
+          echo "Building image for version $VERSION (no v-prefixed image tag)"
+          docker build \
+            --build-arg REACT_APP_API_BASE=$REACT_APP_API_BASE \
+            --build-arg REACT_APP_API_PORT=$REACT_APP_API_PORT \
+            -t $DOCKER_IMAGE:$VERSION \
+            .
+          docker push $DOCKER_IMAGE:$VERSION
+          MAIN_SHA=$(git rev-parse origin/main || git rev-parse main || echo '')
+          RELEASE_SHA='${{ github.event.release.target_commitish }}'
+          if [ -n "$MAIN_SHA" ] && [ "$MAIN_SHA" = "$RELEASE_SHA" ]; then
+            echo "Release commit matches main HEAD; tagging :latest";
+            docker tag $DOCKER_IMAGE:$VERSION $DOCKER_IMAGE:latest
+            docker push $DOCKER_IMAGE:latest
+            echo "latest=1" >> $GITHUB_OUTPUT
+          else
+            echo "Not pushing :latest (release target $RELEASE_SHA != main $MAIN_SHA)";
+            echo "latest=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate SBOM (cyclonedx) (placeholder)
+        run: |
+          echo "SBOM generation step placeholder. Add tooling (e.g., cyclonedx) here if desired."; 
+          echo "TAG=${{ steps.meta.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Summary
+        run: |
+          echo "Release follow-up complete for ${{ steps.meta.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "Version: ${{ steps.meta.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "Pushed tags: ${{ steps.meta.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "Refer to VERSIONING.md for strategy details." >> $GITHUB_STEP_SUMMARY

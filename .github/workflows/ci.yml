@@ -111,28 +111,24 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
-            VERSION=${{ steps.meta.outputs.version }}
-            GIT_TAG=${{ steps.release.outputs.tag }}
-            if [ -z "$GIT_TAG" ]; then GIT_TAG="v${{ steps.meta.outputs.version }}"; fi
-            BRANCH=${{ steps.meta.outputs.branch_tag }}
-            echo "Building image tags: latest, $VERSION, $GIT_TAG, $BRANCH"
-            docker build \
-              --build-arg REACT_APP_API_BASE=${{ env.REACT_APP_API_BASE }} \
-              --build-arg REACT_APP_API_PORT=${{ env.REACT_APP_API_PORT }} \
-              -t $DOCKER_IMAGE:latest \
-              -t $DOCKER_IMAGE:$VERSION \
-              -t $DOCKER_IMAGE:$GIT_TAG \
-              -t $DOCKER_IMAGE:$BRANCH \
-              .
-            docker push $DOCKER_IMAGE:latest
-            docker push $DOCKER_IMAGE:$VERSION
-            docker push $DOCKER_IMAGE:$GIT_TAG
-            docker push $DOCKER_IMAGE:$BRANCH
+          VERSION=${{ steps.meta.outputs.version }}
+          BRANCH=${{ steps.meta.outputs.branch_tag }}
+          echo "Building image tags: latest, $VERSION, $BRANCH (no v-prefixed tag)"
+          docker build \
+            --build-arg REACT_APP_API_BASE=${{ env.REACT_APP_API_BASE }} \
+            --build-arg REACT_APP_API_PORT=${{ env.REACT_APP_API_PORT }} \
+            -t $DOCKER_IMAGE:latest \
+            -t $DOCKER_IMAGE:$VERSION \
+            -t $DOCKER_IMAGE:$BRANCH \
+            .
+          docker push $DOCKER_IMAGE:latest
+          docker push $DOCKER_IMAGE:$VERSION
+          docker push $DOCKER_IMAGE:$BRANCH
 
       - name: Summary
         run: |
           echo "CI complete." >> $GITHUB_STEP_SUMMARY
           echo "Version: ${{ steps.meta.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "Pushed tags: latest, ${{ steps.meta.outputs.version }}, v${{ steps.meta.outputs.version }}, ${{ steps.meta.outputs.branch_tag }}" >> $GITHUB_STEP_SUMMARY
+            echo "Pushed tags: latest, ${{ steps.meta.outputs.version }}, ${{ steps.meta.outputs.branch_tag }}" >> $GITHUB_STEP_SUMMARY
           fi
