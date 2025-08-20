@@ -3,15 +3,15 @@ import PlaybackControls from './PlaybackControls';
 import { Box, CircularProgress, Typography, LinearProgress, Stack, Popover, Slider } from '@mui/material';
 import { NowPlayingResponse, Song } from '../types';
 import { formatTime } from '../utils';
-import { API_BASE } from '../config';
+import { API_BASE, CANVAS_API } from '../config';
 import { ThemeConfig } from '../themeConfig';
 // Background & album art layers moved to App; remove internal background imports
 
 import SpotifyUris from './SpotifyUris';
 
-interface Props { zoneName: string; theme: ThemeConfig; showSpotifyUris?: boolean; onArtworkChange?: (uri:string|null)=>void; onSongIdentityChange?: (id:string|null)=>void; onSpotifyTrackChange?: (trackId:string|null)=>void; canvasMeta?: { canvas_url?: string | null; canvas_id?: string | null; canvas_not_found?: boolean }; nowPlayingExternal?: NowPlayingResponse; }
+interface Props { zoneName: string; theme: ThemeConfig; showSpotifyUris?: boolean; onArtworkChange?: (uri:string|null)=>void; onSongIdentityChange?: (id:string|null)=>void; onSpotifyTrackChange?: (trackId:string|null)=>void; canvasMeta?: { canvas_url?: string | null; canvas_id?: string | null; canvas_not_found?: boolean }; nowPlayingExternal?: NowPlayingResponse; onRequestRefresh?: ()=>void; onCanvasMetaChange?: (m:{ canvas_url?: string | null; canvas_id?: string | null; canvas_not_found?: boolean }) => void; }
 
-const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtworkChange, onSongIdentityChange, onSpotifyTrackChange, canvasMeta, nowPlayingExternal }) => {
+const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtworkChange, onSongIdentityChange, onSpotifyTrackChange, canvasMeta, nowPlayingExternal, onRequestRefresh, onCanvasMetaChange }) => {
   const [nowPlaying, setNowPlaying] = useState<NowPlayingResponse | null>(nowPlayingExternal || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -237,14 +237,14 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
         }
       } catch {/* ignore */}
       // Always refresh immediately after the control action
-      try { refresh(); } catch {/* ignore */}
+      try { onRequestRefresh?.(); } catch {/* ignore */}
       // If the user navigated next/previous, schedule extra follow-up refreshes to capture new track metadata (album art)
       if (action === 'next' || action === 'previous') {
-        try { setTimeout(() => { try { refresh(); } catch {/* ignore */} }, 300); } catch {/* ignore */}
-        try { setTimeout(() => { try { refresh(); } catch {/* ignore */} }, 1200); } catch {/* ignore */}
+        try { setTimeout(() => { try { onRequestRefresh?.(); } catch {/* ignore */} }, 300); } catch {/* ignore */}
+        try { setTimeout(() => { try { onRequestRefresh?.(); } catch {/* ignore */} }, 1200); } catch {/* ignore */}
       } else {
         // regular follow-up for play/pause
-        try { setTimeout(() => { try { refresh(); } catch {/* ignore */} }, 900); } catch {/* ignore */}
+        try { setTimeout(() => { try { onRequestRefresh?.(); } catch {/* ignore */} }, 900); } catch {/* ignore */}
       }
        return true;
      } catch (e:any) {
@@ -257,7 +257,7 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
        window.setTimeout(() => setControlError(null), 5000);
        return false;
      }
-   }, [zoneName, refresh]);
+   }, [zoneName, onRequestRefresh]);
 
   const updateVolume = useCallback((newVol:number) => {
     setVolume(newVol);
@@ -317,6 +317,63 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
 
   useEffect(() => { onSpotifyTrackChange?.(spotifyTrackId); }, [spotifyTrackId, onSpotifyTrackChange]);
 
+  const [localCanvasMeta, setLocalCanvasMeta] = useState<{ canvas_url?: string | null; canvas_id?: string | null; canvas_not_found?: boolean }>({});
+  const prevSpotifyRef = useRef<string | null>(null);
+
+  // If theme requests Canvas, call the CANVAS_API any time the spotify track id changes.
+  useEffect(() => {
+    if (!theme.Canvas) {
+      if (localCanvasMeta && Object.keys(localCanvasMeta).length) {
+        setLocalCanvasMeta({});
+        onCanvasMetaChange?.({});
+      }
+      return;
+    }
+    if (!spotifyTrackId) return;
+    if (!CANVAS_API) return;
+    // Only call when track changes
+    if (prevSpotifyRef.current === spotifyTrackId) return;
+    prevSpotifyRef.current = spotifyTrackId;
+
+    let cancelled = false; const controller = new AbortController();
+    (async () => {
+      try {
+        const url = `${CANVAS_API}${CANVAS_API.includes('?') ? '&' : '?'}track=${encodeURIComponent(spotifyTrackId!)}`;
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) {
+          if (!cancelled) setLocalCanvasMeta({ canvas_not_found: true });
+          return;
+        }
+        const contentType = (res.headers.get('content-type') || '').toLowerCase();
+        let body: any = null;
+        if (contentType.includes('application/json')) body = await res.json(); else { const txt = await res.text(); try { body = JSON.parse(txt); } catch { body = txt.trim(); } }
+        if (cancelled) return;
+        let canvas_url: string | null = null; let canvas_id: string | null = null; let canvas_not_found = false;
+        if (typeof body === 'string') {
+          const txt = body as string;
+          if (txt) {
+            canvas_url = txt;
+            try { const u = new URL(txt); const t = u.searchParams.get('track'); if (t) canvas_id = t; } catch {/* ignore */}
+            if (!canvas_id) { const m = txt.match(/([A-Za-z0-9]{22})/); if (m) canvas_id = m[1]; }
+          } else canvas_not_found = true;
+        } else if (typeof body === 'object' && body !== null) {
+          canvas_url = body.canvas_url || body.url || body.canvasUrl || null;
+          canvas_id = body.canvas_id || body.id || body.canvasId || null;
+          canvas_not_found = !!(body.canvas_not_found || body.not_found || body.canvasNotFound);
+        }
+        const newMeta = { canvas_url: canvas_url || null, canvas_id: canvas_id || null, canvas_not_found: !!canvas_not_found };
+        setLocalCanvasMeta(newMeta);
+        onCanvasMetaChange?.(newMeta);
+      } catch (e) {
+        if (!cancelled) setLocalCanvasMeta({ canvas_not_found: true });
+        if (!cancelled) onCanvasMetaChange?.({ canvas_not_found: true });
+      }
+    })();
+    return () => { cancelled = true; controller.abort(); };
+  }, [spotifyTrackId, theme.Canvas]);
+  // Notify parent if localCanvasMeta is cleared elsewhere
+  useEffect(() => { onCanvasMetaChange?.(localCanvasMeta || {}); }, [localCanvasMeta]);
+
   if (!zoneName) return null;
   if (loading) return <Box mt={4}><CircularProgress/></Box>;
   if (error) return <Box mt={4}><Typography color="error">{error}</Typography></Box>;
@@ -325,7 +382,7 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
   const song = nowPlaying.CurrSong as Song;
   let spotifyData: { track?: string; artist?: string; album?: string; playlist?: string; canvas_url?: string | null; canvas_not_found?: boolean; canvas_id?: string | null } | null = null;
   if (showSpotifyUris && song && Array.isArray((song as any).DeepLinks)) {
-    const dl = (song as any).DeepLinks as Array<{ Kind?: string; Uri?: string }>;
+    const dl = (song as any).DeepLinks as Array<{ Kind?: string; Uri?: string }>; 
     if (dl && dl.length) {
       spotifyData = {};
       for (const d of dl) {
@@ -497,9 +554,9 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
         <SpotifyUris
           data={{
             ...spotifyData,
-            canvas_url: (canvasMeta?.canvas_url ?? spotifyData.canvas_url) || undefined,
-            canvas_not_found: typeof canvasMeta?.canvas_not_found === 'boolean' ? canvasMeta.canvas_not_found : spotifyData.canvas_not_found,
-            canvas_id: (canvasMeta?.canvas_id ?? spotifyData.canvas_id) || undefined
+            canvas_url: (localCanvasMeta?.canvas_url ?? canvasMeta?.canvas_url ?? spotifyData.canvas_url) || undefined,
+            canvas_not_found: typeof localCanvasMeta?.canvas_not_found === 'boolean' ? localCanvasMeta.canvas_not_found : (typeof canvasMeta?.canvas_not_found === 'boolean' ? canvasMeta.canvas_not_found : spotifyData.canvas_not_found),
+            canvas_id: (localCanvasMeta?.canvas_id ?? canvasMeta?.canvas_id ?? spotifyData.canvas_id) || undefined
           }}
         />
       )}

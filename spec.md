@@ -298,13 +298,15 @@ Purpose: Orchestrator for now-playing state. Owns fetching, polling, control API
   - GET ${API_BASE}/zones/{zone}
     - Purpose: fetch zone metadata (including current Volume) when opening the volume popover.
 - if the Theme has Canvas=True
- - Call ${CANVAS_API}?track=${SpotifyTrackId}
- - TrackID will be a variable similar to "7l9IqDtVWJurTvkQHq1BGh"
- - Call this API any time the track changes
- - ensure the resultant information is available to both components
+  - Call ${CANVAS_API}?track=${SpotifyTrackId}
+  - TrackID will be a variable similar to "7l9IqDtVWJurTvkQHq1BGh"
+  - Call this API any time the track changes
+  - ensure the resultant information is available to both components
    - SpotifyUris
    - CanvasVideo
 
 ## Canvas Video
 
-spec not yet provided
+- Only show the video panel if enable for the theme
+- If nowPlaying component returns a valid Canvas URL & CanvasMissing is false, then use the canvasURL as the video.
+- if there is not a valid CanvasURL or CanvasNotFound is True, display the default video, but have it diffused and layer on top of it, "No Video"

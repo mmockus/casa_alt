@@ -27,16 +27,9 @@ import { CANVAS_DEFAULT_VIDEO, CANVAS_API, API_BASE } from './config';
 export default function App() {
   // remove reading localStorage on app load per spec: show only RoomSelector initially
   // Initialize selectedZone from localSettings if available (per spec: restore previously selected room)
-  const [selectedZone, setSelectedZone] = useState<string>(() => {
-    try {
-      const raw = localStorage.getItem('localSettings');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.selectedZone) return parsed.selectedZone;
-      }
-    } catch {/* ignore */}
-    return '';
-  });
+  // Start with no selected zone on app load per control behavior: only show RoomSelector and no other controls or API activity.
+  // Selection may be restored by the user via the dropdown; we still persist the selection when the user chooses a room.
+  const [selectedZone, setSelectedZone] = useState<string>('');
   const [theme, setTheme] = useState<ThemeConfig>(() => {
     try {
       const raw = localStorage.getItem('localSettings');
@@ -146,7 +139,7 @@ export default function App() {
   const MainContent: React.FC<{ zoneName: string; theme: ThemeConfig; showSpotifyUris: boolean; onOpenSettings: ()=>void }>= ({ zoneName, theme, showSpotifyUris, onOpenSettings }) => {
     const [albumArt, setAlbumArt] = useState<string | null>(null);
     const [palette, setPalette] = useState<{dominant:string;accent:string;text:string}>({dominant:'#444',accent:'#888',text:'#fff'});
-    const { nowPlaying } = useNowPlaying(zoneName || undefined);
+    const { nowPlaying, refresh } = useNowPlaying(zoneName || undefined);
 
     // Derive song identity & spotifyTrackId centrally
     const songIdentity = React.useMemo(() => {
@@ -337,12 +330,21 @@ export default function App() {
         {albumArt && (
           <Box component="img" id="album-art-main" src={albumArt} alt="album" sx={{ position:'fixed', inset:0, width:'100vw', height:'100vh', objectFit:'contain', zIndex:2, opacity:0.95, pointerEvents:'none', transition:'opacity 1.2s ease' }} />
         )}
-        {theme.Canvas && (canvasMeta?.canvas_url || defaultCanvasVideo) && canvasLeftPx != null && canvasWidthPx != null && (
-          <CanvasVideo debug leftPx={canvasLeftPx} widthPx={canvasWidthPx} verticalCenter defaultSrc={canvasMeta?.canvas_url || defaultCanvasVideo} />
+        {theme.Canvas && canvasLeftPx != null && canvasWidthPx != null && (
+          <CanvasVideo
+            debug
+            leftPx={canvasLeftPx}
+            widthPx={canvasWidthPx}
+            verticalCenter
+            defaultSrc={defaultCanvasVideo}
+            src={canvasMeta?.canvas_url || undefined}
+            diffused={!canvasMeta?.canvas_url || !!canvasMeta?.canvas_not_found}
+            overlayText={!canvasMeta?.canvas_url || !!canvasMeta?.canvas_not_found ? 'No Video' : null}
+          />
         )}
         {/* Front: NowPlaying overlay */}
         <Box sx={{ position:'fixed', inset:0, zIndex:3 }}>
-          <NowPlaying zoneName={zoneName} theme={theme} showSpotifyUris={showSpotifyUris} canvasMeta={canvasMeta} nowPlayingExternal={nowPlaying || undefined} onArtworkChange={(uri)=>setAlbumArt(uri)} />
+          <NowPlaying zoneName={zoneName} theme={theme} showSpotifyUris={showSpotifyUris} canvasMeta={canvasMeta} nowPlayingExternal={nowPlaying || undefined} onArtworkChange={(uri)=>setAlbumArt(uri)} onRequestRefresh={refresh} onCanvasMetaChange={(m)=>setCanvasMeta(m)} />
         </Box>
       </>
     );
