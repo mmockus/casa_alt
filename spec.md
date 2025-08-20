@@ -199,3 +199,64 @@ Instructions to help copilot build this out are below
 look at this app as a baseline for the UI, we can make this better
 
 http://<CASATUNES_HOST>/casatunesx/#/room-detail-view
+
+# Control behavior
+
+## App Load
+
+- when the app loads ONLY show
+  - Background color
+  - RoomSelector
+  - Do not call or show any of the other controls
+- Disable
+  - CanvasVideo
+  - KaleidoscopeBackground
+  - NowPlaying
+  - PlaybackControls
+  - SpotifyUris
+
+## Room Selector
+
+### Power Button
+
+- Display
+  - Room not selected, disabled and grey
+  - Room ON - green
+  - Room Off - red
+- Action
+  - If ON Click 
+    - call zones/{ZoneName}?Power=off
+    - Update to RED
+  - If OFF Click 
+    - call zones/{ZoneName}?Power=on
+    - Update to GREEN
+
+### Room List Dropdown
+- call /zones
+- list the zones
+- add to the list "Select room" as first item
+- Select current room from localSetting is available
+- Hide/remove "select room" if a room is selected
+- Do not list any room with attribute "Hidden": true
+- Display a small circle before the room name
+  - Circle RED if power is OFF
+  - Circle Green if power is ON
+
+### Room Group
+- Hide if select room is off
+
+### Theme Selector
+- Hide if select room is off
+
+### Setting Gear
+- Always show
+
+## Main App (app.tsx)
+- If room select is ON call zones/{ZoneName}/nowplaying
+- If room selector Zone is OFF disable and hide controls
+  - CanvasVideo
+  - KaleidoscopeBackground
+  - NowPlaying
+  - PlaybackControls
+  - SpotifyUris
+- If room selector changes room selection reevaluate ##Main App rules
