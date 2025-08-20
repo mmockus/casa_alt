@@ -26,7 +26,17 @@ import { CANVAS_DEFAULT_VIDEO, CANVAS_API, API_BASE } from './config';
 
 export default function App() {
   // remove reading localStorage on app load per spec: show only RoomSelector initially
-  const [selectedZone, setSelectedZone] = useState<string>('');
+  // Initialize selectedZone from localSettings if available (per spec: restore previously selected room)
+  const [selectedZone, setSelectedZone] = useState<string>(() => {
+    try {
+      const raw = localStorage.getItem('localSettings');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.selectedZone) return parsed.selectedZone;
+      }
+    } catch {/* ignore */}
+    return '';
+  });
   const [theme, setTheme] = useState<ThemeConfig>(() => {
     try {
       const raw = localStorage.getItem('localSettings');
@@ -126,6 +136,8 @@ export default function App() {
         </Box>
         {/* Background color only - no other controls or API calls */}
         <Box sx={{ position:'fixed', inset:0, overflow:'hidden', zIndex:0, background:'#000' }} />
+        {/* Settings modal must be available even when no room is selected */}
+        <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} theme={theme} setTheme={setTheme} />
       </ThemeProvider>
     );
   }

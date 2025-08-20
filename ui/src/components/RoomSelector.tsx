@@ -155,8 +155,14 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
           <IconButton size={mini ? 'small' : 'medium'} aria-label="select theme" onClick={e => setThemeAnchor(e.currentTarget)} sx={{ p: mini ? 0.4 : 1 }}>
             <PaletteIcon fontSize={mini ? 'small' : 'medium'} />
           </IconButton>
-          {/* Settings gear: always show per spec */}
-          <IconButton size={mini ? 'small' : 'medium'} aria-label="settings" onClick={() => onOpenSettings && onOpenSettings()} sx={{ p: mini ? 0.4 : 1 }}>
+          {/* Settings gear: always shown and active per spec - never disabled; triggers parent handler if provided */}
+          <IconButton
+            size={mini ? 'small' : 'medium'}
+            aria-label="settings"
+            title="Settings"
+            onClick={() => { if (onOpenSettings) onOpenSettings(); }}
+            sx={{ p: mini ? 0.4 : 1 }}
+          >
             <SettingsOutlinedIcon fontSize={mini ? 'small' : 'medium'} />
           </IconButton>
           <Popover open={groupOpen} anchorEl={groupAnchor} onClose={() => setGroupAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
