@@ -65,15 +65,19 @@ jobs:
             -t $DOCKER_IMAGE:$VERSION \
             .
           docker push $DOCKER_IMAGE:$VERSION
-          MAIN_SHA=$(git rev-parse origin/main || git rev-parse main || echo '')
-          RELEASE_SHA='${{ github.event.release.target_commitish }}'
+          # Ensure we have refs for both main and master, then resolve SHAs for comparison
+          git fetch origin main master --quiet || true
+          MAIN_SHA=$(git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null || git rev-parse main 2>/dev/null || git rev-parse master 2>/dev/null || echo '')
+          RELEASE_SHA=$(git rev-parse '${{ github.event.release.target_commitish }}' 2>/dev/null || echo '')
+          echo "DEBUG: MAIN_SHA=$MAIN_SHA"
+          echo "DEBUG: RELEASE_SHA=$RELEASE_SHA"
           if [ -n "$MAIN_SHA" ] && [ "$MAIN_SHA" = "$RELEASE_SHA" ]; then
-            echo "Release commit matches main HEAD; tagging :latest";
+            echo "Release commit matches main/master HEAD; tagging :latest";
             docker tag $DOCKER_IMAGE:$VERSION $DOCKER_IMAGE:latest
             docker push $DOCKER_IMAGE:latest
             echo "latest=1" >> $GITHUB_OUTPUT
           else
-            echo "Not pushing :latest (release target $RELEASE_SHA != main $MAIN_SHA)";
+            echo "Not pushing :latest (release target $RELEASE_SHA != main/master $MAIN_SHA)";
             echo "latest=0" >> $GITHUB_OUTPUT
           fi
 
