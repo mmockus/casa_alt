@@ -1,8 +1,6 @@
 services:
   casatunes-ui:
-    # To build locally instead of pulling the published image, uncomment the build
-    # section below and optionally adjust build args. By default we're pulling
-    # the pre-built image from Docker Hub (mmockus/mycasa:latest).
+    # Build locally for development, or pull the published image from Docker Hub if DOCKER_IMAGE is set
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,8 +9,7 @@ services:
         REACT_APP_API_BASE: ${REACT_APP_API_BASE:-http://casaserver.local}
         # Optional CasaTunes API port (defaults to 8735 if unset)
         REACT_APP_API_PORT: ${REACT_APP_API_PORT:-8735}
-    # image: mmockus/mycasa:latest
-    # image: casatunes-ui:latest
+    image: ${DOCKER_IMAGE}
     ports:
       - "${DOCKER_APP_PORT:-8080}:80"
     restart: unless-stopped
