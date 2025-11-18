@@ -5,12 +5,14 @@ import { createTheme } from '@mui/material/styles';
 import RoomSelector from './components/RoomSelector';
 import NowPlaying from './components/NowPlaying';
 import SettingsModal from './components/SettingsModal';
-import CanvasVideo from './components/CanvasVideo';
-import KaleidoscopeBackground from './components/KaleidoscopeBackground';
 // Types & utils
 import { themes, ThemeConfig } from './themeConfig';
 import { useNowPlaying } from './hooks/useNowPlaying';
 import { CANVAS_DEFAULT_VIDEO, CANVAS_API, API_BASE } from './config';
+
+// Lazy-load heavy visual components to reduce initial bundle size
+const CanvasVideo = React.lazy(() => import('./components/CanvasVideo'));
+const KaleidoscopeBackground = React.lazy(() => import('./components/KaleidoscopeBackground'));
 
 
 // API base now centralized in config.ts
@@ -61,12 +63,20 @@ export default function App() {
       }
     };
     window.addEventListener('storage', onStorage);
-    const interval = setInterval(() => {
-      // Poll every 2s as modal writes localStorage in same tab (storage event won't fire)
-      try { const parsed = JSON.parse(localStorage.getItem('localSettings') || '{}'); const flag = !!parsed.showSpotifyUris; setShowSpotifyUris(prev => prev !== flag ? flag : prev); } catch { /* ignore */ }
-    }, 2000);
-    return () => { window.removeEventListener('storage', onStorage); clearInterval(interval); };
-  }, []);
+
+    // Reduce polling: only poll when settings modal is open (modal writes localStorage in same tab)
+    let interval: number | undefined;
+    if (settingsOpen) {
+      const poll = () => {
+        try { const parsed = JSON.parse(localStorage.getItem('localSettings') || '{}'); const flag = !!parsed.showSpotifyUris; setShowSpotifyUris(prev => prev !== flag ? flag : prev); } catch { /* ignore */ }
+      };
+      // run once immediately and then poll every 2s while modal open
+      poll();
+      interval = window.setInterval(poll, 2000) as unknown as number;
+    }
+
+    return () => { window.removeEventListener('storage', onStorage); if (interval) window.clearInterval(interval); };
+  }, [settingsOpen]);
 
   // Persist theme selection inside localSettings only
   useEffect(() => {
@@ -261,7 +271,11 @@ export default function App() {
     const [canvasWidthPx, setCanvasWidthPx] = useState<number | null>(null);
     useEffect(() => {
       if (!theme.Canvas) return;
+      let rafId: number | null = null;
+      let scheduled = false;
+
       const compute = () => {
+        scheduled = false;
         const vw = window.innerWidth;
         const vh = window.innerHeight;
         const img = document.getElementById('album-art-main') as HTMLImageElement | null;
@@ -269,11 +283,7 @@ export default function App() {
         if (img && img.naturalWidth && img.naturalHeight) {
           const imageAspect = img.naturalWidth / img.naturalHeight;
           const viewportAspect = vw / vh;
-          if (imageAspect > viewportAspect) {
-            albumArtWidth = vw;
-          } else {
-            albumArtWidth = vh * imageAspect;
-          }
+          albumArtWidth = imageAspect > viewportAspect ? vw : vh * imageAspect;
         } else {
           albumArtWidth = Math.min(vw, vh);
         }
@@ -283,11 +293,11 @@ export default function App() {
           videoWidth = Math.min(vw, vh) * 0.28;
           videoWidth = Math.max(160, Math.min(videoWidth, 360));
         }
-        let videoHeight = videoWidth * (16/9);
+        let videoHeight = videoWidth * (16 / 9);
         const maxHeight = vh * 0.9;
         if (videoHeight > maxHeight) {
           videoHeight = maxHeight;
-          videoWidth = videoHeight * (9/16);
+          videoWidth = videoHeight * (9 / 16);
         }
         const widthNotAlbum = Math.max(0, vw - albumArtWidth);
         let centerX: number;
@@ -303,13 +313,28 @@ export default function App() {
         setCanvasLeftPx(adjustedCenterX);
         setCanvasWidthPx(videoWidth);
       };
-      compute();
-      const onResize = () => compute();
+
+      const scheduleCompute = () => {
+        if (scheduled) return;
+        scheduled = true;
+        rafId = window.requestAnimationFrame(() => compute());
+      };
+
+      // initial compute
+      scheduleCompute();
+
+      const onResize = () => scheduleCompute();
       window.addEventListener('resize', onResize);
-      const interval = setInterval(compute, 1200);
+
+      const onImgLoad = () => scheduleCompute();
       const imgEl = document.getElementById('album-art-main') as HTMLImageElement | null;
-      if (imgEl) imgEl.addEventListener('load', compute);
-      return () => { window.removeEventListener('resize', onResize); clearInterval(interval); if (imgEl) imgEl.removeEventListener('load', compute); };
+      if (imgEl) imgEl.addEventListener('load', onImgLoad);
+
+      return () => {
+        window.removeEventListener('resize', onResize);
+        if (imgEl) imgEl.removeEventListener('load', onImgLoad);
+        if (rafId) window.cancelAnimationFrame(rafId);
+      };
     }, [theme.Canvas, zoneName, theme.name]);
 
     return (

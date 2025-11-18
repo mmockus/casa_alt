@@ -310,3 +310,4 @@ Purpose: Orchestrator for now-playing state. Owns fetching, polling, control API
 - Only show the video panel if enable for the theme
 - If nowPlaying component returns a valid Canvas URL & CanvasMissing is false, then use the canvasURL as the video.
 - if there is not a valid CanvasURL or CanvasNotFound is True, display the default video, but have it diffused and layer on top of it, "No Video"
+- if I pause playback, pause the video, if the track is playing the video should play
