@@ -34,6 +34,8 @@ Root `.env` (used by both docker compose and direct builds):
 ```
 REACT_APP_API_BASE=http://casaserver.local   # Protocol + host ONLY (no port, no trailing slash, no /api/v1)
 REACT_APP_API_PORT=8735                      # CasaTunes API port (defaults to 8735 if unset)
+REACT_APP_CANVAS_API=https://your-canvas-api-endpoint  # Optional: Canvas API for video backgrounds
+REACT_APP_CANVAS_DEFAULT_VIDEO=https://your-default-video-url  # Optional: Default video for canvas
 DOCKER_APP_PORT=8080                         # Host port to publish the UI container on (docker-compose)
 ```
 
@@ -42,6 +44,7 @@ Rules:
 - If you accidentally include `:port` inside `REACT_APP_API_BASE`, a warning logs; prefer using `REACT_APP_API_PORT`.
 - If `REACT_APP_API_BASE` is unset, it falls back to `http://casaserver.local`.
 - If `REACT_APP_API_PORT` is unset, it defaults to `8735`.
+- Canvas API vars are optional and used for dynamic video backgrounds based on current track.
 
 ### Quick Start (.env)
 Create your env file from the provided template:
