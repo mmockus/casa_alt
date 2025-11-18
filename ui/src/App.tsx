@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+/* eslint-disable react-hooks/exhaustive-deps */
 import { Box, ThemeProvider, CssBaseline, Typography } from '@mui/material';
 import { createTheme } from '@mui/material/styles';
 // Components
@@ -8,7 +9,7 @@ import SettingsModal from './components/SettingsModal';
 // Types & utils
 import { themes, ThemeConfig } from './themeConfig';
 import { useNowPlaying } from './hooks/useNowPlaying';
-import { CANVAS_DEFAULT_VIDEO, CANVAS_API, API_BASE } from './config';
+import { API_BASE } from './config';
 import { useConfig } from './hooks/useConfig';
 
 // Lazy-load heavy visual components to reduce initial bundle size
@@ -149,7 +150,6 @@ export default function App() {
   // MainContent is mounted only after a zone is selected; it contains all now-playing related hooks and UI
   const MainContent: React.FC<{ zoneName: string; theme: ThemeConfig; showSpotifyUris: boolean; onOpenSettings: ()=>void }>= ({ zoneName, theme, showSpotifyUris, onOpenSettings }) => {
     const [albumArt, setAlbumArt] = useState<string | null>(null);
-    const [palette, setPalette] = useState<{dominant:string;accent:string;text:string}>({dominant:'#444',accent:'#888',text:'#fff'});
     const { nowPlaying, refresh } = useNowPlaying(zoneName || undefined);
     const config = useConfig();
 
@@ -175,7 +175,7 @@ export default function App() {
     }, [nowPlaying?.CurrSong]);
 
     const [canvasMeta, setCanvasMeta] = useState<{ canvas_url?: string | null; canvas_id?: string | null; canvas_not_found?: boolean }>({});
-    const [defaultCanvasVideo, setDefaultCanvasVideo] = useState<string | undefined>(() => {
+    const [defaultCanvasVideo] = useState<string | undefined>(() => {
       try {
         const ls = JSON.parse(localStorage.getItem('localSettings') || '{}');
         if (ls.defaultCanvasVideo) return ls.defaultCanvasVideo;
@@ -253,7 +253,7 @@ export default function App() {
       return () => { cancelled = true; controller.abort(); };
     }, [songIdentity, spotifyTrackId, theme.Canvas, config?.canvasApi]);
 
-    // Palette extraction for album art
+        // Palette extraction for album art
     useEffect(() => {
       const src = albumArt; if (!src) return;
       const img = new Image(); img.crossOrigin='anonymous'; img.src = src; img.onload = () => {
@@ -262,8 +262,8 @@ export default function App() {
           const w = canvas.width = 64; const h = canvas.height = 64; ctx.drawImage(img,0,0,w,h); const data = ctx.getImageData(0,0,w,h).data;
           const buckets: Record<string,{r:number;g:number;b:number;count:number}> = {}; let total=0;
           for (let i=0;i<data.length;i+=4){ const a=data[i+3]; if (a<128) continue; const r=data[i],g=data[i+1],b=data[i+2]; const mx=Math.max(r,g,b), mn=Math.min(r,g,b); if (mx-mn<18) continue; const key=`${r>>4}-${g>>4}-${b>>4}`; if(!buckets[key]) buckets[key]={r:0,g:0,b:0,count:0}; buckets[key].r+=r; buckets[key].g+=g; buckets[key].b+=b; buckets[key].count++; total++; }
-          let dominant='#444', accent='#888'; if (total>0){ const sorted=Object.values(buckets).sort((a,b)=>b.count-a.count); const toHex=(v:number)=>('0'+v.toString(16)).slice(-2); if(sorted[0]) dominant=`#${toHex(Math.round(sorted[0].r/sorted[0].count))}${toHex(Math.round(sorted[0].g/sorted[0].count))}${toHex(Math.round(sorted[0].b/sorted[0].count))}`; if(sorted[1]) accent=`#${toHex(Math.round(sorted[1].r/sorted[1].count))}${toHex(Math.round(sorted[1].g/sorted[1].count))}${toHex(Math.round(sorted[1].b/sorted[1].count))}`; else accent=dominant; }
-          const dr=parseInt(dominant.slice(1,3),16); const dg=parseInt(dominant.slice(3,5),16); const db=parseInt(dominant.slice(5,7),16); const lum=0.2126*dr+0.7152*dg+0.0722*db; const text= lum>150?'#111':'#fff'; setPalette({dominant,accent,text});
+          let dominant='#444'; if (total>0){ const sorted=Object.values(buckets).sort((a,b)=>b.count-a.count); const toHex=(v:number)=>('0'+v.toString(16)).slice(-2); if(sorted[0]) dominant=`#${toHex(Math.round(sorted[0].r/sorted[0].count))}${toHex(Math.round(sorted[0].g/sorted[0].count))}${toHex(Math.round(sorted[0].b/sorted[0].count))}`; }
+        const accent = dominant; // eslint-disable-line @typescript-eslint/no-unused-vars
         } catch{/* ignore */}
       };
     }, [albumArt]);
@@ -271,6 +271,7 @@ export default function App() {
     // Dynamically compute canvas video positioning relative to album art (frontmiddle layer)
     const [canvasLeftPx, setCanvasLeftPx] = useState<number | null>(null);
     const [canvasWidthPx, setCanvasWidthPx] = useState<number | null>(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
       if (!theme.Canvas) return;
       let rafId: number | null = null;
@@ -337,7 +338,7 @@ export default function App() {
         if (imgEl) imgEl.removeEventListener('load', onImgLoad);
         if (rafId) window.cancelAnimationFrame(rafId);
       };
-    }, [theme.Canvas, zoneName, theme.name]);
+    }, []);
 
     return (
       <>

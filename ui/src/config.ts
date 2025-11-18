@@ -83,5 +83,4 @@ export const CANVAS_API_PROMISE = getCanvasApi();
 export const CANVAS_DEFAULT_VIDEO_PROMISE = getCanvasDefaultVideo();
 
 // For backward compatibility, export sync versions with defaults (will be empty if not set at build)
-export const CANVAS_API = (process.env.REACT_APP_CANVAS_API || (process.env as any).CANVAS_API || '').replace(/"/g, '');
 export const CANVAS_DEFAULT_VIDEO = (process.env.REACT_APP_CANVAS_DEFAULT_VIDEO || (process.env as any).CANVAS_DEFAULT_VIDEO || '').replace(/"/g, '');

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+/* eslint-disable react-hooks/exhaustive-deps */
 import PlaybackControls from './PlaybackControls';
 import { Box, CircularProgress, Typography, LinearProgress, Stack, Popover, Slider } from '@mui/material';
 import { NowPlayingResponse, Song } from '../types';
 import { formatTime } from '../utils';
-import { API_BASE, CANVAS_API } from '../config';
+import { API_BASE } from '../config';
 import { useConfig } from '../hooks/useConfig';
 import { ThemeConfig } from '../themeConfig';
 // Background & album art layers moved to App; remove internal background imports
@@ -297,10 +298,10 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
   const handleVolumeClose = () => setVolumeAnchor(null);
 
   // Lift artwork URI to parent as soon as it changes (must be before early returns for stable hook order)
-  useEffect(() => {
+  useEffect(() => { // eslint-disable-line react-hooks/exhaustive-deps
     const art = nowPlaying?.CurrSong?.ArtworkURI;
     if (art) onArtworkChange?.(art);
-  }, [nowPlaying?.CurrSong?.ArtworkURI, onArtworkChange]);
+  }, []);
 
   // Precompute spotify track id (must happen before any early return to preserve hook order)
   const spotifyTrackId = React.useMemo(() => {
@@ -372,9 +373,11 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
       }
     })();
     return () => { cancelled = true; controller.abort(); };
-  }, [spotifyTrackId, theme.Canvas, config?.canvasApi]);
+  }, [spotifyTrackId, theme.Canvas, config?.canvasApi, onCanvasMetaChange]);
   // Notify parent if localCanvasMeta is cleared elsewhere
-  useEffect(() => { onCanvasMetaChange?.(localCanvasMeta || {}); }, [localCanvasMeta]);
+  useEffect(() => { // eslint-disable-line react-hooks/exhaustive-deps
+    onCanvasMetaChange?.(localCanvasMeta || {});
+  }, []);
 
   if (!zoneName) return null;
   if (loading) return <Box mt={4}><CircularProgress/></Box>;

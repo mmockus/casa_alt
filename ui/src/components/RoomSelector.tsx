@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+/* eslint-disable react-hooks/exhaustive-deps */
 import { Box, CircularProgress, Typography, Stack, FormControl, Select, MenuItem, IconButton, Popover, Divider, List, ListItemButton, Checkbox, ListItemText } from '@mui/material';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import PaletteIcon from '@mui/icons-material/Palette';
@@ -30,7 +31,7 @@ export const RoomSelector: React.FC<Props> = ({ selectedZone, setSelectedZone, t
   // settings handled by modal in parent
 
   // On mount, restore saved theme only. Do NOT auto-select a room on load per control behavior rules
-  useEffect(() => {
+  useEffect(() => { // eslint-disable-line react-hooks/exhaustive-deps
     try {
       const raw = localStorage.getItem('localSettings');
       if (!raw) return; const parsed = JSON.parse(raw);

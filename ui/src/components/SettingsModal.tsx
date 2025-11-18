@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Stack, Divider, FormControlLabel, Checkbox, Alert, Box } from '@mui/material';
 import { ThemeConfig } from '../themeConfig';
-import { CANVAS_DEFAULT_VIDEO, CANVAS_API } from '../config';
+import { CANVAS_DEFAULT_VIDEO } from '../config';
 import { useConfig } from '../hooks/useConfig';
 
 interface SettingsModalProps {
