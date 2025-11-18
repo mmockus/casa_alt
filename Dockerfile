@@ -29,8 +29,11 @@ LABEL org.opencontainers.image.title="Casatunes Alternate UI" \
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy build output
 COPY --from=build /app/build /usr/share/nginx/html
+# Copy entrypoint script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD wget -q -O /dev/null http://localhost/ || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/docker-entrypoint.sh"]

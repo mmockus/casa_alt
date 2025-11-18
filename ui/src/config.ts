@@ -48,7 +48,39 @@ export const API_BASE = `${hostProtocol}://${hostName}${finalPort ? ':'+finalPor
 
 // Canvas API endpoint (external service providing canvas video given a Spotify track ID)
 // Must be exposed at build time in CRA, so we prefer REACT_APP_CANVAS_API but also check unprefixed for dev convenience.
-export const CANVAS_API = (process.env.REACT_APP_CANVAS_API || (process.env as any).CANVAS_API || '').replace(/"/g,'');
+// Now also fetches from /config.json at runtime for dynamic configuration.
+const getCanvasApi = async (): Promise<string> => {
+  // Try runtime config first
+  try {
+    const response = await fetch('/config.json');
+    if (response.ok) {
+      const config = await response.json();
+      if (config.CANVAS_API) return config.CANVAS_API.replace(/"/g, '');
+    }
+  } catch (e) {
+    // Ignore fetch errors, fall back to build-time
+  }
+  // Fallback to build-time env
+  return (process.env.REACT_APP_CANVAS_API || (process.env as any).CANVAS_API || '').replace(/"/g, '');
+};
 
 // Default Canvas fallback video (previously hardcoded). If provided, we persist to localSettings for future sessions.
-export const CANVAS_DEFAULT_VIDEO = (process.env.REACT_APP_CANVAS_DEFAULT_VIDEO || (process.env as any).CANVAS_DEFAULT_VIDEO || '').replace(/"/g,'');
+const getCanvasDefaultVideo = async (): Promise<string> => {
+  try {
+    const response = await fetch('/config.json');
+    if (response.ok) {
+      const config = await response.json();
+      if (config.CANVAS_DEFAULT_VIDEO) return config.CANVAS_DEFAULT_VIDEO.replace(/"/g, '');
+    }
+  } catch (e) {
+    // Ignore
+  }
+  return (process.env.REACT_APP_CANVAS_DEFAULT_VIDEO || (process.env as any).CANVAS_DEFAULT_VIDEO || '').replace(/"/g, '');
+};
+
+// For synchronous use, provide promises
+export const CANVAS_API_PROMISE = getCanvasApi();
+export const CANVAS_DEFAULT_VIDEO_PROMISE = getCanvasDefaultVideo();
+
+// For backward compatibility, export sync versions with defaults (will be empty if not set at build)
+export const CANVAS_DEFAULT_VIDEO = (process.env.REACT_APP_CANVAS_DEFAULT_VIDEO || (process.env as any).CANVAS_DEFAULT_VIDEO || '').replace(/"/g, '');

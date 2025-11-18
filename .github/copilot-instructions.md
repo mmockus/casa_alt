@@ -17,6 +17,7 @@
 - **Start dev server**: `npm start`
 - **Build Docker image**: `docker build -t casatunes-ui .`
 - **Run in Docker**: `docker run -p 8080:80 casatunes-ui`
+- **Build and run with Docker Compose** (recommended for local development): `docker compose up --build`
 - **No authentication**: The API and UI are open on the local network.
 
 ## Project Conventions
@@ -30,7 +31,7 @@
 
 ## Integration Points
 - **Casatunes API**: All data and control flows through the API. See `spec.md` for endpoint details and usage.
-- **Docker**: The app is packaged and deployed as a Docker container (see README for commands).
+- **Docker and Docker Compose**: The app is packaged and deployed as a Docker container. Use `docker compose` (with space) for local development and deployment (see README and docker-compose.yml for commands).
 
 ## Source Control
 - Copilot is allowed to run npx and npm commands (e.g., create-react-app, npm install) without asking for user confirmation.

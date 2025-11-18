@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Stack, Divider, FormControlLabel, Checkbox, Alert, Box } from '@mui/material';
 import { ThemeConfig } from '../themeConfig';
-import { CANVAS_DEFAULT_VIDEO, CANVAS_API } from '../config';
+import { CANVAS_DEFAULT_VIDEO } from '../config';
+import { useConfig } from '../hooks/useConfig';
 
 interface SettingsModalProps {
   open: boolean;
@@ -44,6 +45,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, theme }) =
   const [settings, setSettings] = useState<LocalSettings>(defaultSettings);
   const [loaded, setLoaded] = useState(false);
   const [liveSnapshot, setLiveSnapshot] = useState<Record<string, any>>({});
+  const config = useConfig();
 
   // Load once when modal first opens
   useEffect(() => {
@@ -97,7 +99,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, theme }) =
           <Box>
             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Canvas API</Typography>
             <Box sx={{ fontFamily: 'monospace', fontSize: '0.66rem', lineHeight: 1.3, bgcolor: 'background.default', p:0.6, borderRadius:1, border: '1px solid rgba(255,255,255,0.06)' }}>
-              {CANVAS_API ? CANVAS_API : '(unset)'}
+              {config?.canvasApi ? config.canvasApi : '(unset)'}
             </Box>
           </Box>
           <Divider flexItem />

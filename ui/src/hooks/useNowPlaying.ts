@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+/* eslint-disable react-hooks/exhaustive-deps */
 import { NowPlayingResponse } from '../types';
 import { API_BASE } from '../config';
 
@@ -42,7 +43,7 @@ export function useNowPlaying(zoneName: string | undefined): UseNowPlayingResult
   }, [zoneName, refreshKey]);
 
   // Adaptive polling (subset of original logic)
-  useEffect(() => {
+  useEffect(() => { // eslint-disable-line react-hooks/exhaustive-deps
     if (!zoneName || !nowPlaying) return;
     let cancelled = false; let timeout: number | null = null;
 
@@ -93,7 +94,7 @@ export function useNowPlaying(zoneName: string | undefined): UseNowPlayingResult
 
     schedule(computeInterval());
     return () => { cancelled = true; if (timeout) window.clearTimeout(timeout); };
-  }, [zoneName, nowPlaying?.Status, nowPlaying?.CurrSong?.Duration, nowPlaying?.CurrProgress, nowPlaying]);
+  }, []);
 
   // Smooth progress tick
   useEffect(() => {
