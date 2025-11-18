@@ -4,6 +4,7 @@ import { Box, CircularProgress, Typography, LinearProgress, Stack, Popover, Slid
 import { NowPlayingResponse, Song } from '../types';
 import { formatTime } from '../utils';
 import { API_BASE, CANVAS_API } from '../config';
+import { useConfig } from '../hooks/useConfig';
 import { ThemeConfig } from '../themeConfig';
 // Background & album art layers moved to App; remove internal background imports
 
@@ -30,6 +31,7 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
   const consecutiveErrorsRef = useRef(0);
   // Track previous song identity to detect transitions for artwork refresh
   const prevSongIdRef = useRef<string | null>(null);
+  const config = useConfig();
 
   // Marquee scroll logic: only scroll if text overflows
   useEffect(() => {
@@ -330,7 +332,7 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
       return;
     }
     if (!spotifyTrackId) return;
-    if (!CANVAS_API) return;
+    if (!config?.canvasApi) return;
     // Only call when track changes
     if (prevSpotifyRef.current === spotifyTrackId) return;
     prevSpotifyRef.current = spotifyTrackId;
@@ -338,7 +340,7 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
     let cancelled = false; const controller = new AbortController();
     (async () => {
       try {
-        const url = `${CANVAS_API}${CANVAS_API.includes('?') ? '&' : '?'}track=${encodeURIComponent(spotifyTrackId!)}`;
+        const url = `${config.canvasApi}${config.canvasApi.includes('?') ? '&' : '?'}track=${encodeURIComponent(spotifyTrackId!)}`;
         const res = await fetch(url, { signal: controller.signal });
         if (!res.ok) {
           if (!cancelled) setLocalCanvasMeta({ canvas_not_found: true });
@@ -370,7 +372,7 @@ const NowPlaying: React.FC<Props> = ({ zoneName, theme, showSpotifyUris, onArtwo
       }
     })();
     return () => { cancelled = true; controller.abort(); };
-  }, [spotifyTrackId, theme.Canvas]);
+  }, [spotifyTrackId, theme.Canvas, config?.canvasApi]);
   // Notify parent if localCanvasMeta is cleared elsewhere
   useEffect(() => { onCanvasMetaChange?.(localCanvasMeta || {}); }, [localCanvasMeta]);
 

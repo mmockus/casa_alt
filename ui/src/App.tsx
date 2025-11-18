@@ -9,6 +9,7 @@ import SettingsModal from './components/SettingsModal';
 import { themes, ThemeConfig } from './themeConfig';
 import { useNowPlaying } from './hooks/useNowPlaying';
 import { CANVAS_DEFAULT_VIDEO, CANVAS_API, API_BASE } from './config';
+import { useConfig } from './hooks/useConfig';
 
 // Lazy-load heavy visual components to reduce initial bundle size
 const CanvasVideo = React.lazy(() => import('./components/CanvasVideo'));
@@ -150,6 +151,7 @@ export default function App() {
     const [albumArt, setAlbumArt] = useState<string | null>(null);
     const [palette, setPalette] = useState<{dominant:string;accent:string;text:string}>({dominant:'#444',accent:'#888',text:'#fff'});
     const { nowPlaying, refresh } = useNowPlaying(zoneName || undefined);
+    const config = useConfig();
 
     // Derive song identity & spotifyTrackId centrally
     const songIdentity = React.useMemo(() => {
@@ -177,10 +179,10 @@ export default function App() {
       try {
         const ls = JSON.parse(localStorage.getItem('localSettings') || '{}');
         if (ls.defaultCanvasVideo) return ls.defaultCanvasVideo;
-        if (CANVAS_DEFAULT_VIDEO) {
-          ls.defaultCanvasVideo = CANVAS_DEFAULT_VIDEO;
+        if (config?.canvasDefaultVideo) {
+          ls.defaultCanvasVideo = config.canvasDefaultVideo;
           localStorage.setItem('localSettings', JSON.stringify(ls));
-          return CANVAS_DEFAULT_VIDEO;
+          return config.canvasDefaultVideo;
         }
       } catch {/* ignore */}
       return undefined;
@@ -193,14 +195,14 @@ export default function App() {
         return;
       }
       if (!songIdentity || !spotifyTrackId) return;
-      if (!CANVAS_API) return;
+      if (!config?.canvasApi) return;
 
       let cancelled = false;
       const controller = new AbortController();
 
       (async () => {
         try {
-          const url = `${CANVAS_API}${CANVAS_API.includes('?') ? '&' : '?'}track=${encodeURIComponent(spotifyTrackId)}`;
+          const url = `${config.canvasApi}${config.canvasApi.includes('?') ? '&' : '?'}track=${encodeURIComponent(spotifyTrackId)}`;
           const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) {
             if (!cancelled) setCanvasMeta({ canvas_not_found: true });
@@ -249,7 +251,7 @@ export default function App() {
       })();
 
       return () => { cancelled = true; controller.abort(); };
-    }, [songIdentity, spotifyTrackId, theme.Canvas]);
+    }, [songIdentity, spotifyTrackId, theme.Canvas, config?.canvasApi]);
 
     // Palette extraction for album art
     useEffect(() => {
