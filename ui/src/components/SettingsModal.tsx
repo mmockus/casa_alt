@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Stack, Divider, FormControlLabel, Checkbox, Alert, Box } from '@mui/material';
 import { ThemeConfig } from '../themeConfig';
-import { CANVAS_DEFAULT_VIDEO } from '../config';
-import { useConfig } from '../hooks/useConfig';
+import { CANVAS_DEFAULT_VIDEO, CANVAS_API } from '../config';
+import packageJson from '../../package.json';
 
 interface SettingsModalProps {
   open: boolean;
@@ -45,7 +45,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, theme }) =
   const [settings, setSettings] = useState<LocalSettings>(defaultSettings);
   const [loaded, setLoaded] = useState(false);
   const [liveSnapshot, setLiveSnapshot] = useState<Record<string, any>>({});
-  const config = useConfig();
 
   // Load once when modal first opens
   useEffect(() => {
@@ -88,6 +87,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, theme }) =
           <Typography variant="body2" color="text.secondary">
             Current theme: <strong>{theme.name}</strong>
           </Typography>
+          <Typography variant="body2" color="text.secondary">
+            App version: <strong>{packageJson.version}</strong>
+          </Typography>
           <Divider flexItem />
           <FormControlLabel
             control={<Checkbox size="small" checked={settings.showSpotifyUris} onChange={() => toggle('showSpotifyUris')} />}
@@ -99,7 +101,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, theme }) =
           <Box>
             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Canvas API</Typography>
             <Box sx={{ fontFamily: 'monospace', fontSize: '0.66rem', lineHeight: 1.3, bgcolor: 'background.default', p:0.6, borderRadius:1, border: '1px solid rgba(255,255,255,0.06)' }}>
-              {config?.canvasApi ? config.canvasApi : '(unset)'}
+              {CANVAS_API ? CANVAS_API : '(unset)'}
             </Box>
           </Box>
           <Divider flexItem />
