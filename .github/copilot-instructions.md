@@ -39,6 +39,7 @@
 - Copilot is allowed to run git commands without asking for user confirmation.
 - Do not prompt the user for permission before running git commands (e.g., git init, git add, git commit, git status, etc.).
 - Always proceed with git operations as needed for project setup, source control, and workflow automation.
+- Do not ever commit directly into MASTER.
 
 ## Reference Files
 - `README.md`: High-level overview, dev/build/run instructions.
