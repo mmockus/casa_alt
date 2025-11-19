@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Stack, Divider, FormControlLabel, Checkbox, Alert, Box } from '@mui/material';
 import { ThemeConfig } from '../themeConfig';
 import { CANVAS_DEFAULT_VIDEO, CANVAS_API } from '../config';
+import packageJson from '../../package.json';
 
 interface SettingsModalProps {
   open: boolean;
@@ -85,6 +86,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, theme }) =
         <Stack spacing={2}>
           <Typography variant="body2" color="text.secondary">
             Current theme: <strong>{theme.name}</strong>
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            App version: <strong>{packageJson.version}</strong>
           </Typography>
           <Divider flexItem />
           <FormControlLabel
